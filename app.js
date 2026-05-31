@@ -108,6 +108,9 @@ const state = {
   uploading: false,
 };
 
+// Admin mode: append ?admin=true to URL
+const IS_ADMIN = new URLSearchParams(window.location.search).get('admin') === 'true';
+
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
@@ -452,12 +455,37 @@ function feedItem(item) {
       <div class="feed-item-top">
         <span class="feed-item-name">${safe(item.player_name)}</span>
         <span class="feed-item-gen">${safe(GEN_LABELS[item.generation] ?? item.generation)}</span>
+        ${IS_ADMIN ? `<button class="delete-btn" data-id="${safe(item.id)}" data-photo="${safe(item.photo_url ?? '')}">🗑</button>` : ''}
       </div>
       <div class="feed-item-field ${isCross ? 'is-cross-gen' : ''}">${safe(fieldTxt)}</div>
       <div class="feed-item-time">${timeAgo(item.created_at)}</div>
     </div>`;
 
+  if (IS_ADMIN) {
+    div.querySelector('.delete-btn').addEventListener('click', () => deleteEntry(item.id, item.photo_url, div));
+  }
+
   return div;
+}
+
+async function deleteEntry(id, photoUrl, el) {
+  if (!confirm('Eintrag löschen?')) return;
+  try {
+    // Delete from DB
+    await db.from('completions').delete().eq('id', id);
+
+    // Delete photo from storage if exists
+    if (photoUrl) {
+      const fileName = photoUrl.split('/').pop();
+      await db.storage.from('bingo photos').remove([decodeURIComponent(fileName)]);
+    }
+
+    el.remove();
+    showToast('Gelöscht ✓');
+  } catch (err) {
+    console.error(err);
+    showToast('Fehler beim Löschen');
+  }
 }
 
 function subscribeFeed() {

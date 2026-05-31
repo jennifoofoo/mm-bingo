@@ -573,6 +573,21 @@ body {
   margin-top: 4px;
 }
 
+.delete-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 4px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.delete-btn:active {
+  opacity: 1;
+}
+
 .feed-empty {
   text-align: center;
   padding: 60px 24px;
