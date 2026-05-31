@@ -168,10 +168,18 @@ function init() {
 // ═══════════════════════════════════════════════
 
 // Fullscreen -registered at top level so it's always a direct user-event handler
-document.getElementById('fullscreen-btn').addEventListener('click', () => {
-  const el = document.documentElement;
-  const goFull = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
-  if (goFull) goFull.call(el);
+const fsBtn = document.getElementById('fullscreen-btn');
+fsBtn.addEventListener('click', () => {
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  } else {
+    const el = document.documentElement;
+    const goFull = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (goFull) goFull.call(el);
+  }
+});
+document.addEventListener('fullscreenchange', () => {
+  fsBtn.textContent = document.fullscreenElement ? '✕ Vollbild' : '⛶ Vollbild';
 });
 
 async function loadDisplayFeed() {
