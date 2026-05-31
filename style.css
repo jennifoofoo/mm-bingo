@@ -687,6 +687,92 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* ── DISPLAY MODE (Beamer/TV) ────────────────── */
+
+#screen-display {
+  background: var(--navy);
+  max-width: 100%;
+}
+
+.display-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 32px;
+  border-bottom: 2px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+
+.display-logo {
+  height: 40px;
+  filter: brightness(0) invert(1);
+}
+
+.display-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--white);
+}
+
+.display-list {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 24px 32px;
+  align-content: start;
+}
+
+.display-item {
+  background: rgba(255,255,255,0.06);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.display-photo {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  display: block;
+}
+
+.display-info {
+  padding: 12px 16px 14px;
+}
+
+.display-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--white);
+}
+
+.display-gen {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal);
+  margin-top: 2px;
+}
+
+.display-field {
+  font-size: 13px;
+  color: rgba(255,255,255,0.6);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.display-field.is-cross-gen {
+  color: var(--cross);
+}
+
+.display-empty {
+  color: rgba(255,255,255,0.4);
+  font-size: 20px;
+  text-align: center;
+  padding: 80px 32px;
+  grid-column: 1 / -1;
+}
+
 /* ── TOAST ───────────────────────────────────── */
 
 .toast {

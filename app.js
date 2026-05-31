@@ -118,6 +118,13 @@ function init() {
     db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 
+  // Beamer/TV display mode: ?display=true
+  if (new URLSearchParams(window.location.search).get('display') === 'true') {
+    showScreen('display');
+    loadDisplayFeed();
+    return;
+  }
+
   // Restore session from localStorage
   const savedPlayer    = localStorage.getItem('mm-player');
   const savedFields    = localStorage.getItem('mm-fields');
@@ -132,6 +139,58 @@ function init() {
   } else {
     showScreen('entry');
   }
+}
+
+// ═══════════════════════════════════════════════
+// DISPLAY MODE (Beamer/TV)
+// ═══════════════════════════════════════════════
+
+async function loadDisplayFeed() {
+  if (!db) {
+    document.getElementById('display-list').innerHTML = '<div class="display-empty">Supabase nicht konfiguriert</div>';
+    return;
+  }
+
+  const { data } = await db
+    .from('completions')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  renderDisplayFeed(data || []);
+
+  // Realtime updates
+  db.channel('display-feed')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'completions' }, payload => {
+      const list = document.getElementById('display-list');
+      list.insertBefore(displayItem(payload.new), list.firstChild);
+      // Keep max 20 items
+      while (list.children.length > 20) list.removeChild(list.lastChild);
+    })
+    .subscribe();
+}
+
+function renderDisplayFeed(items) {
+  const list = document.getElementById('display-list');
+  list.innerHTML = items.length === 0
+    ? '<div class="display-empty">Noch keine Fotos — los geht\'s! 🎯</div>'
+    : '';
+  items.forEach(item => list.appendChild(displayItem(item)));
+}
+
+function displayItem(item) {
+  const div = document.createElement('div');
+  div.className = 'display-item';
+  const isCross = item.field_text?.startsWith('🤝');
+  const fieldTxt = item.field_text?.replace('🤝 CROSS-GEN: ', '🤝 ') ?? '';
+  div.innerHTML = `
+    ${item.photo_url ? `<img class="display-photo" src="${safe(item.photo_url)}" loading="lazy">` : ''}
+    <div class="display-info">
+      <div class="display-name">${safe(item.player_name)}</div>
+      <div class="display-gen">${safe(GEN_LABELS[item.generation] ?? item.generation)}</div>
+      <div class="display-field ${isCross ? 'is-cross-gen' : ''}">${safe(fieldTxt)}</div>
+    </div>`;
+  return div;
 }
 
 // ═══════════════════════════════════════════════
@@ -360,22 +419,25 @@ function markCompleted(index) {
 function checkBingo() {
   const c = state.completed;
 
-  const rows = [
-    [0,1,2,3,4], [5,6,7,8,9], [10,11,12,13,14],
-    [15,16,17,18,19], [20,21,22,23,24],
-  ];
-  const cols = [
-    [0,5,10,15,20], [1,6,11,16,21], [2,7,12,17,22],
-    [3,8,13,18,23], [4,9,14,19,24],
-  ];
-  const diags = [
+  const lines = [
+    [0,1,2,3,4], [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24],
+    [0,5,10,15,20], [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24],
     [0,6,12,18,24], [4,8,12,16,20],
   ];
 
-  const winning = [...rows, ...cols, ...diags].find(line => line.every(i => c.has(i)));
-  if (!winning) return;
+  // Win = beide Cross-Gen Felder abgehakt + mind. 2 volle Reihen/Spalten/Diagonalen
+  const crossGenIndices = state.fields
+    .map((f, i) => f.startsWith('🤝') ? i : -1)
+    .filter(i => i !== -1);
+  const hasBothCrossGen = crossGenIndices.every(i => c.has(i));
 
-  winning.forEach(i => {
+  const completedLines = lines.filter(line => line.every(i => c.has(i)));
+  const hasTwoLines = completedLines.length >= 2;
+
+  if (!hasBothCrossGen || !hasTwoLines) return;
+
+  // Flash alle gewonnenen Reihen
+  completedLines.flat().forEach(i => {
     document.querySelector(`.bingo-cell[data-i="${i}"]`)?.classList.add('bingo-flash');
   });
 
