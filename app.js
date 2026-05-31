@@ -303,13 +303,13 @@ async function submitCompletion() {
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
       const { error: upErr } = await db.storage
-        .from('bingo-photos')
+        .from('bingo photos')
         .upload(fileName, chosenFile, { contentType: chosenFile.type });
 
       if (upErr) throw upErr;
 
       const { data: { publicUrl } } = db.storage
-        .from('bingo-photos')
+        .from('bingo photos')
         .getPublicUrl(fileName);
 
       photoUrl = publicUrl;
