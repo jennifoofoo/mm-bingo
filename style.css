@@ -759,13 +759,14 @@ body {
 
 /* ── DISPLAY MODE (Beamer/TV) ────────────────── */
 
-/* Display mode overrides body max-width */
+/* Display mode overrides body max-width and background */
 body.display-mode {
   max-width: 100%;
+  background: var(--white);
 }
 
 #screen-display {
-  background: var(--navy);
+  background: var(--white);
 }
 
 .display-header {
@@ -773,36 +774,26 @@ body.display-mode {
   align-items: center;
   gap: 16px;
   padding: 16px 32px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1.5px solid var(--gray-light);
   flex-shrink: 0;
 }
 
-.display-brand {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+.display-logo {
+  height: 40px;
 }
 
-.display-brand-mm {
-  font-size: 26px;
+.display-title {
+  font-size: 24px;
   font-weight: 900;
-  color: var(--teal);
-  letter-spacing: -0.5px;
-}
-
-.display-brand-bingo {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--white);
-  opacity: 0.85;
+  color: var(--navy);
 }
 
 .fullscreen-btn {
   margin-left: auto;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
+  background: var(--gray-light);
+  border: 1px solid var(--gray-mid);
   border-radius: 8px;
-  color: var(--white);
+  color: var(--navy);
   font-size: 13px;
   font-weight: 600;
   padding: 7px 14px;
@@ -824,7 +815,7 @@ body.display-mode {
   flex: 3;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid rgba(255,255,255,0.1);
+  border-right: 1.5px solid var(--gray-light);
   min-height: 0;
 }
 
@@ -837,9 +828,9 @@ body.display-mode {
 }
 
 .display-col-header {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  color: rgba(255,255,255,0.4);
+  color: var(--gray-text);
   text-transform: uppercase;
   letter-spacing: 1px;
   padding: 12px 20px 8px;
@@ -872,9 +863,11 @@ body.display-mode {
 .display-lb .lb-count { font-size: 20px; }
 
 .display-item {
-  background: rgba(255,255,255,0.06);
+  background: var(--white);
+  border: 1.5px solid var(--gray-light);
   border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
 .display-photo {
@@ -891,7 +884,7 @@ body.display-mode {
 .display-name {
   font-size: 14px;
   font-weight: 800;
-  color: var(--white);
+  color: var(--navy);
 }
 
 .display-gen {
@@ -903,7 +896,7 @@ body.display-mode {
 
 .display-field {
   font-size: 11px;
-  color: rgba(255,255,255,0.5);
+  color: var(--gray-text);
   margin-top: 4px;
   line-height: 1.3;
 }
@@ -911,12 +904,20 @@ body.display-mode {
 .display-field.is-cross-gen { color: var(--cross); }
 
 .display-empty {
-  color: rgba(255,255,255,0.3);
+  color: var(--gray-mid);
   font-size: 16px;
   text-align: center;
   padding: 60px 24px;
   grid-column: 1 / -1;
 }
+
+/* Leaderboard in display mode — light theme */
+.display-lb .lb-entry {
+  background: var(--gray-light);
+  border-color: var(--gray-light);
+}
+
+.display-lb .lb-name { color: var(--navy); }
 
 /* ── TOAST ───────────────────────────────────── */
 

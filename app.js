@@ -167,6 +167,13 @@ function init() {
 // DISPLAY MODE (Beamer/TV)
 // ═══════════════════════════════════════════════
 
+// Fullscreen — registered at top level so it's always a direct user-event handler
+document.getElementById('fullscreen-btn').addEventListener('click', () => {
+  const el = document.documentElement;
+  const goFull = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+  if (goFull) goFull.call(el);
+});
+
 async function loadDisplayFeed() {
   if (!db) {
     document.getElementById('display-list').innerHTML = '<div class="display-empty">Supabase nicht konfiguriert</div>';
@@ -186,13 +193,6 @@ async function loadDisplayFeed() {
 
   // Use shared feed channel (subscribeFeed handles real-time for both)
   if (!feedChannel) subscribeFeed();
-
-  // Fullscreen button
-  document.getElementById('fullscreen-btn').addEventListener('click', () => {
-    const el = document.documentElement;
-    if (el.requestFullscreen) el.requestFullscreen();
-    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-  });
 }
 
 async function loadDisplayLeaderboard() {
