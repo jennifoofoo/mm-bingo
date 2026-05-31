@@ -184,7 +184,7 @@ async function loadDisplayFeed() {
     .from('completions')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(12);
+    .limit(6);
 
   renderDisplayFeed(data || []);
 
@@ -659,7 +659,13 @@ function subscribeFeed() {
         const de = dList.querySelector('.display-empty');
         if (de) de.remove();
         dList.insertBefore(displayItem(payload.new), dList.firstChild);
-        while (dList.children.length > 12) dList.removeChild(dList.lastChild);
+        // Animate out + remove oldest if over 6
+        while (dList.children.length > 6) {
+          const last = dList.lastChild;
+          last.classList.add('removing');
+          setTimeout(() => last.remove(), 300);
+          break;
+        }
       }
 
       // Debounced leaderboard refresh
