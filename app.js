@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// BINGO FIELDS — 25 per generation
+// BINGO FIELDS -25 per generation
 // ═══════════════════════════════════════════════
 
 const FIELDS = {
@@ -11,7 +11,7 @@ const FIELDS = {
     'Has no idea what they want to build yet',
     'Has described M&M as "it changed my life" within the first week',
     'Has said "let\'s align" in the last 24 hours',
-    'Has Notion, Obsidian AND a notebook — uses none of them',
+    'Has Notion, Obsidian AND a notebook -uses none of them',
     'Has Googled a term their mentor used and nodded along',
     'Has "Entrepreneur" on LinkedIn before having a product',
     'Has rewritten their M&M application at least twice',
@@ -27,8 +27,8 @@ const FIELDS = {
     'Has used "pivot" in a sentence this month',
     'Has a newsletter or Substack draft never published',
     'Has told someone they\'re "building something in stealth"',
-    '🤝 CROSS-GEN: Find an Alumni — ask their biggest mistake. Foto together.',
-    '🤝 CROSS-GEN: Find a G42–44 — ask what they wish they knew. Foto together.',
+    '🤝 CROSS-GEN: Find an Alumni -ask their biggest mistake. Foto together.',
+    '🤝 CROSS-GEN: Find a G42-44 -ask what they wish they knew. Foto together.',
   ],
 
   Active: [
@@ -55,8 +55,8 @@ const FIELDS = {
     'Has described M&M as "it changed my life" to a stranger',
     'Has said "let\'s align" in the last 24 hours',
     'Has bought more than 3 domains for ideas that never launched',
-    '🤝 CROSS-GEN: Find a G45 — give them your best advice. Foto together.',
-    '🤝 CROSS-GEN: Find an Alumni — ask how they got their first customer. Foto together.',
+    '🤝 CROSS-GEN: Find a G45 -give them your best advice. Foto together.',
+    '🤝 CROSS-GEN: Find an Alumni -ask how they got their first customer. Foto together.',
   ],
 
   Alumni: [
@@ -71,7 +71,7 @@ const FIELDS = {
     'Has read every Paul Graham essay at least once',
     'Has ended a friendship because of an equity dispute',
     'Has convinced someone to apply to M&M who got rejected',
-    'Has described M&M as "it changed my life" — and still means it',
+    'Has described M&M as "it changed my life" -and still means it',
     'Has had a startup post-mortem longer than the startup itself',
     'Has more than 3 domains for dead companies',
     'Has a slide deck from a company that no longer exists',
@@ -83,8 +83,8 @@ const FIELDS = {
     'Has described their first product as "an MVP" in retrospect',
     'Has said "if I\'d known then what I know now" this year',
     'Has a YC rejection email saved and occasionally re-reads it',
-    '🤝 CROSS-GEN: Find a G45 — tell them what you wish you knew. Foto together.',
-    '🤝 CROSS-GEN: Find a G42–44 — share your worst pivot story. Foto together.',
+    '🤝 CROSS-GEN: Find a G45 -tell them what you wish you knew. Foto together.',
+    '🤝 CROSS-GEN: Find a G42-44 -share your worst pivot story. Foto together.',
   ],
 };
 
@@ -123,7 +123,7 @@ const state = {
 // ═══════════════════════════════════════════════
 
 function init() {
-  // Supabase — only if credentials are provided
+  // Supabase -only if credentials are provided
   if (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
     db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
@@ -167,7 +167,7 @@ function init() {
 // DISPLAY MODE (Beamer/TV)
 // ═══════════════════════════════════════════════
 
-// Fullscreen — registered at top level so it's always a direct user-event handler
+// Fullscreen -registered at top level so it's always a direct user-event handler
 document.getElementById('fullscreen-btn').addEventListener('click', () => {
   const el = document.documentElement;
   const goFull = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
@@ -183,6 +183,7 @@ async function loadDisplayFeed() {
   const { data } = await db
     .from('completions')
     .select('*')
+    .not('photo_url', 'is', null)
     .order('created_at', { ascending: false })
     .limit(6);
 
@@ -204,7 +205,7 @@ async function loadDisplayLeaderboard() {
 function renderDisplayFeed(items) {
   const list = document.getElementById('display-list');
   list.innerHTML = items.length === 0
-    ? '<div class="display-empty">Noch keine Fotos — los geht\'s! 🎯</div>'
+    ? '<div class="display-empty">Noch keine Fotos -los geht\'s! 🎯</div>'
     : '';
   items.forEach(item => list.appendChild(displayItem(item)));
 }
@@ -567,7 +568,7 @@ async function loadLeaderboard(targetEl = document.getElementById('lb-list')) {
     .select('player_name, generation');
 
   if (error || !data) { targetEl.innerHTML = '<div class="lb-empty">Fehler beim Laden</div>'; return; }
-  if (data.length === 0) { targetEl.innerHTML = '<div class="lb-empty">Noch niemand dabei — mach das erste Foto! 📸</div>'; return; }
+  if (data.length === 0) { targetEl.innerHTML = '<div class="lb-empty">Noch niemand dabei -mach das erste Foto! 📸</div>'; return; }
 
   // Aggregate client-side (avoids need for DB functions)
   const counts = {};
@@ -616,7 +617,7 @@ async function loadFeed() {
   }
 
   if (data.length === 0) {
-    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">📸</div><div>Noch keine Fotos — sei der Erste!</div></div>';
+    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">📸</div><div>Noch keine Fotos -sei der Erste!</div></div>';
     return;
   }
 
@@ -653,9 +654,9 @@ function subscribeFeed() {
       if (empty) empty.remove();
       list.insertBefore(feedItem(payload.new), list.firstChild);
 
-      // Update display feed
+      // Update display feed (only items with photos)
       const dList = document.getElementById('display-list');
-      if (dList) {
+      if (dList && payload.new.photo_url) {
         const de = dList.querySelector('.display-empty');
         if (de) de.remove();
         dList.insertBefore(displayItem(payload.new), dList.firstChild);
@@ -693,8 +694,8 @@ document.getElementById('win-card-btn').addEventListener('click', () => showScre
 function cellAbbrev(field) {
   if (field.startsWith('🤝')) {
     // Cross-gen: just show who to find
-    // "🤝 CROSS-GEN: Find an Alumni — ask..." → "🤝\nAlumni"
-    const who = field.includes('Alumni') ? 'Alumni' : field.includes('G45') ? 'G45' : 'G42–44';
+    // "🤝 CROSS-GEN: Find an Alumni -ask..." → "🤝\nAlumni"
+    const who = field.includes('Alumni') ? 'Alumni' : field.includes('G45') ? 'G45' : 'G42-44';
     return '🤝\n' + who;
   }
   // Strip "Has " and take first 3–4 meaningful words
