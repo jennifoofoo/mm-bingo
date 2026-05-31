@@ -687,6 +687,76 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* ── LEADERBOARD ─────────────────────────────── */
+
+.lb-list, .display-lb {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.lb-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--white);
+  border-radius: 12px;
+  padding: 12px 16px;
+  border: 1.5px solid var(--gray-light);
+}
+
+.lb-rank {
+  font-size: 22px;
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.lb-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.lb-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-gen {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--teal);
+}
+
+.lb-count {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--teal);
+  flex-shrink: 0;
+}
+
+.lb-total {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-text);
+}
+
+.lb-empty {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--gray-text);
+  font-size: 15px;
+}
+
 /* ── DISPLAY MODE (Beamer/TV) ────────────────── */
 
 #screen-display {
@@ -698,35 +768,85 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 20px 32px;
-  border-bottom: 2px solid rgba(255,255,255,0.1);
+  padding: 16px 32px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
   flex-shrink: 0;
 }
 
 .display-logo {
-  height: 40px;
+  height: 36px;
   filter: brightness(0) invert(1);
 }
 
 .display-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--white);
+}
+
+/* Split layout */
+.display-body {
+  flex: 1;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.display-feed-col {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,0.1);
+  min-height: 0;
+}
+
+.display-lb-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 280px;
+}
+
+.display-col-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 12px 20px 8px;
+  flex-shrink: 0;
 }
 
 .display-list {
   flex: 1;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-  padding: 24px 32px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 8px 16px 16px;
   align-content: start;
 }
 
+/* Leaderboard in display mode */
+.display-lb {
+  padding: 8px 12px 16px;
+}
+
+.display-lb .lb-entry {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.1);
+  padding: 10px 14px;
+}
+
+.display-lb .lb-name { color: var(--white); }
+.display-lb .lb-rank { font-size: 18px; }
+.display-lb .lb-count { font-size: 20px; }
+
 .display-item {
   background: rgba(255,255,255,0.06);
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
 }
 
@@ -738,38 +858,36 @@ body {
 }
 
 .display-info {
-  padding: 12px 16px 14px;
+  padding: 8px 12px 10px;
 }
 
 .display-name {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--white);
 }
 
 .display-gen {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--teal);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .display-field {
-  font-size: 13px;
-  color: rgba(255,255,255,0.6);
-  margin-top: 6px;
-  line-height: 1.4;
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 4px;
+  line-height: 1.3;
 }
 
-.display-field.is-cross-gen {
-  color: var(--cross);
-}
+.display-field.is-cross-gen { color: var(--cross); }
 
 .display-empty {
-  color: rgba(255,255,255,0.4);
-  font-size: 20px;
+  color: rgba(255,255,255,0.3);
+  font-size: 16px;
   text-align: center;
-  padding: 80px 32px;
+  padding: 60px 24px;
   grid-column: 1 / -1;
 }
 

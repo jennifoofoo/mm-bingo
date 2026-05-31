@@ -62,6 +62,7 @@
           <div class="progress-label">/ 25</div>
         </div>
         <button id="feed-btn" class="feed-btn">📸 Feed</button>
+        <button id="lb-btn" class="feed-btn">🏆</button>
       </div>
     </div>
 
@@ -70,6 +71,18 @@
     <div class="card-footer">
       <button id="reset-btn" class="reset-btn">↺ Neustart</button>
     </div>
+  </div>
+
+  <!-- SCREEN: Leaderboard -->
+  <div id="screen-leaderboard" class="screen">
+    <div class="feed-header">
+      <button id="back-from-lb-btn" class="back-btn">←</button>
+      <div>
+        <div class="feed-title">Leaderboard 🏆</div>
+        <div class="feed-subtitle">Wer hat die meisten Felder?</div>
+      </div>
+    </div>
+    <div id="lb-list" class="lb-list"></div>
   </div>
 
   <!-- SCREEN 3: Feed -->
@@ -115,13 +128,22 @@
     </div>
   </div>
 
-  <!-- SCREEN: Display (Beamer/TV) -->
+  <!-- SCREEN: Display (Beamer/TV) — Split: Feed left + Leaderboard right -->
   <div id="screen-display" class="screen">
     <div class="display-header">
       <img src="mm-logo.png" alt="M&M" class="display-logo">
-      <div class="display-title">Founder Bingo — Live Feed</div>
+      <div class="display-title">M&M Founder Bingo</div>
     </div>
-    <div id="display-list" class="display-list"></div>
+    <div class="display-body">
+      <div class="display-feed-col">
+        <div class="display-col-header">📸 Live Feed</div>
+        <div id="display-list" class="display-list"></div>
+      </div>
+      <div class="display-lb-col">
+        <div class="display-col-header">🏆 Leaderboard</div>
+        <div id="display-lb" class="display-lb"></div>
+      </div>
+    </div>
   </div>
 
   <!-- LOADING -->

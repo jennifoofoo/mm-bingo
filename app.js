@@ -100,6 +100,7 @@ const GEN_LABELS = {
 
 let db = null;
 let feedChannel = null;
+let lbDebounceTimer = null;
 let modalOpen = false; // Fix 3: debounce double-tap
 
 // Fix 1+2: safe localStorage helpers
@@ -175,19 +176,21 @@ async function loadDisplayFeed() {
     .from('completions')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(12);
 
   renderDisplayFeed(data || []);
 
-  // Realtime updates
-  db.channel('display-feed')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'completions' }, payload => {
-      const list = document.getElementById('display-list');
-      list.insertBefore(displayItem(payload.new), list.firstChild);
-      // Keep max 20 items
-      while (list.children.length > 20) list.removeChild(list.lastChild);
-    })
-    .subscribe();
+  // Leaderboard for display
+  await loadDisplayLeaderboard();
+
+  // Use shared feed channel (subscribeFeed handles real-time for both)
+  if (!feedChannel) subscribeFeed();
+}
+
+async function loadDisplayLeaderboard() {
+  const el = document.getElementById('display-lb');
+  if (!el) return;
+  await loadLeaderboard(el);
 }
 
 function renderDisplayFeed(items) {
@@ -521,6 +524,69 @@ document.getElementById('feed-btn').addEventListener('click', () => {
 
 document.getElementById('back-to-card-btn').addEventListener('click', () => showScreen('card'));
 
+// ═══════════════════════════════════════════════
+// LEADERBOARD
+// ═══════════════════════════════════════════════
+
+document.getElementById('lb-btn').addEventListener('click', () => {
+  showScreen('leaderboard');
+  loadLeaderboard();
+  if (db && !feedChannel) subscribeFeed(); // reuse feed subscription for realtime triggers
+});
+
+document.getElementById('back-from-lb-btn').addEventListener('click', () => showScreen('card'));
+
+function scheduleLeaderboardRefresh() {
+  clearTimeout(lbDebounceTimer);
+  lbDebounceTimer = setTimeout(() => {
+    if (document.getElementById('screen-leaderboard').classList.contains('active')) {
+      loadLeaderboard();
+    }
+    if (document.getElementById('screen-display').classList.contains('active')) {
+      loadDisplayLeaderboard();
+    }
+  }, 3000);
+}
+
+async function loadLeaderboard(targetEl = document.getElementById('lb-list')) {
+  if (!db) {
+    targetEl.innerHTML = '<div class="lb-empty">Supabase nicht verbunden</div>';
+    return;
+  }
+
+  const { data, error } = await db
+    .from('completions')
+    .select('player_name, generation');
+
+  if (error || !data) { targetEl.innerHTML = '<div class="lb-empty">Fehler beim Laden</div>'; return; }
+  if (data.length === 0) { targetEl.innerHTML = '<div class="lb-empty">Noch niemand dabei — mach das erste Foto! 📸</div>'; return; }
+
+  // Aggregate client-side (avoids need for DB functions)
+  const counts = {};
+  data.forEach(({ player_name, generation }) => {
+    const key = player_name;
+    if (!counts[key]) counts[key] = { player_name, generation, count: 0 };
+    counts[key].count++;
+  });
+
+  const ranked = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 20);
+  const medals = ['🥇', '🥈', '🥉'];
+
+  targetEl.innerHTML = '';
+  ranked.forEach((entry, i) => {
+    const div = document.createElement('div');
+    div.className = 'lb-entry';
+    div.innerHTML = `
+      <span class="lb-rank">${medals[i] ?? `#${i + 1}`}</span>
+      <div class="lb-info">
+        <span class="lb-name">${safe(entry.player_name)}</span>
+        <span class="lb-gen">${safe(GEN_LABELS[entry.generation] ?? entry.generation)}</span>
+      </div>
+      <span class="lb-count">${entry.count}<span class="lb-total">/25</span></span>`;
+    targetEl.appendChild(div);
+  });
+}
+
 async function loadFeed() {
   const list = document.getElementById('feed-list');
   list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">⏳</div><div>Wird geladen...</div></div>';
@@ -573,10 +639,23 @@ function feedItem(item) {
 function subscribeFeed() {
   feedChannel = db.channel('feed')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'completions' }, payload => {
+      // Update feed list
       const list  = document.getElementById('feed-list');
       const empty = list.querySelector('.feed-empty');
       if (empty) empty.remove();
       list.insertBefore(feedItem(payload.new), list.firstChild);
+
+      // Update display feed
+      const dList = document.getElementById('display-list');
+      if (dList) {
+        const de = dList.querySelector('.display-empty');
+        if (de) de.remove();
+        dList.insertBefore(displayItem(payload.new), dList.firstChild);
+        while (dList.children.length > 12) dList.removeChild(dList.lastChild);
+      }
+
+      // Debounced leaderboard refresh
+      scheduleLeaderboardRefresh();
     })
     .subscribe();
 }
