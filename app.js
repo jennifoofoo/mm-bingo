@@ -1,0 +1,547 @@
+// ═══════════════════════════════════════════════
+// BINGO FIELDS — 25 per generation
+// ═══════════════════════════════════════════════
+
+const FIELDS = {
+  G45: [
+    'Has bought a domain for an idea that never launched',
+    'Has bought more than 3 domains for ideas that never launched',
+    'Has a notes app full of unfinished startup ideas',
+    'Has watched a startup documentary past midnight',
+    'Has no idea what they want to build yet',
+    'Has described M&M as "it changed my life" within the first week',
+    'Has said "let\'s align" in the last 24 hours',
+    'Has Notion, Obsidian AND a notebook — uses none of them',
+    'Has Googled a term their mentor used and nodded along',
+    'Has "Entrepreneur" on LinkedIn before having a product',
+    'Has rewritten their M&M application at least twice',
+    'Has a pitch deck with no product behind it',
+    'Has a side project that\'s been "almost ready" for months',
+    'Has "Founder" in their Tinder or Bumble profile',
+    'Has already mentioned "high agency" this evening',
+    'Has DMed a stranger on LinkedIn for "a quick coffee"',
+    'Has said "we\'re pre-revenue" to sound intentional',
+    'Has a group chat with future co-founders that\'s gone quiet',
+    'Has attended a hackathon but never shipped the project',
+    'Has described a coffee chat as "a meeting"',
+    'Has used "pivot" in a sentence this month',
+    'Has a newsletter or Substack draft never published',
+    'Has told someone they\'re "building something in stealth"',
+    '🤝 CROSS-GEN: Find an Alumni — ask their biggest mistake. Foto together.',
+    '🤝 CROSS-GEN: Find a G42–44 — ask what they wish they knew. Foto together.',
+  ],
+
+  Active: [
+    'Has convinced someone to apply to M&M who got rejected',
+    'Has pitched Manage and More on a first date',
+    'Has survived the Business Design Bootcamp',
+    'Has cold-emailed a CEO and actually got a reply',
+    'Has built something nobody used',
+    'Has "Founder" in their Tinder or Bumble profile',
+    'Has already mentioned "high agency" this evening',
+    'Has a YC rejection email saved somewhere',
+    'Has pitched at Start and Spread',
+    'Has more laptop stickers than revenue',
+    'Has used "founder mode" unironically this month',
+    'Has said "we\'re early stage" to avoid hard questions',
+    'Has a domain that\'s been parked for over a year',
+    'Has a newsletter with fewer than 20 subscribers',
+    'Has introduced themselves by their company name first',
+    'Has taken a business call during a date and thought it was fine',
+    'Has said "let\'s take this offline" in the last week',
+    'Has used startup jargon in an argument with someone close',
+    'Has applied to more than one accelerator',
+    'Has a podcast that stopped after 4 episodes',
+    'Has described M&M as "it changed my life" to a stranger',
+    'Has said "let\'s align" in the last 24 hours',
+    'Has bought more than 3 domains for ideas that never launched',
+    '🤝 CROSS-GEN: Find a G45 — give them your best advice. Foto together.',
+    '🤝 CROSS-GEN: Find an Alumni — ask how they got their first customer. Foto together.',
+  ],
+
+  Alumni: [
+    'Has cried in a pitch meeting',
+    'Has convinced a stranger to invest within 10 minutes',
+    'Has been on a date that turned into a business meeting',
+    'Has pretended to understand a term sheet',
+    'Has run out of runway with no backup plan',
+    'Has lost a co-founder mid-launch',
+    'Has incorporated a company before having a single user',
+    'Has applied to YC with an idea that no longer exists',
+    'Has read every Paul Graham essay at least once',
+    'Has ended a friendship because of an equity dispute',
+    'Has convinced someone to apply to M&M who got rejected',
+    'Has described M&M as "it changed my life" — and still means it',
+    'Has had a startup post-mortem longer than the startup itself',
+    'Has more than 3 domains for dead companies',
+    'Has a slide deck from a company that no longer exists',
+    'Has raised a friends & family round from actual friends and family',
+    'Has written a "lessons learned" post after shutting down',
+    'Has hired someone better than them at their own job',
+    'Has lost a pitch competition to an idea they thought was worse',
+    'Has a cap table that required a lawyer to explain',
+    'Has described their first product as "an MVP" in retrospect',
+    'Has said "if I\'d known then what I know now" this year',
+    'Has a YC rejection email saved and occasionally re-reads it',
+    '🤝 CROSS-GEN: Find a G45 — tell them what you wish you knew. Foto together.',
+    '🤝 CROSS-GEN: Find a G42–44 — share your worst pivot story. Foto together.',
+  ],
+};
+
+const GEN_LABELS = {
+  G45:    'Gen 45 · Newest',
+  Active: 'Gen 42–44 · Active',
+  Alumni: 'Alumni · G41+',
+};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+
+let db = null; // Supabase client
+let feedChannel = null;
+
+const state = {
+  player: null,   // { name, generation }
+  fields: [],     // ordered array of field strings for this player
+  completed: new Set(), // Set of indices (0–24) that are done
+  uploading: false,
+};
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+
+function init() {
+  // Supabase — only if credentials are provided
+  if (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+    db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+
+  // Restore session from localStorage
+  const savedPlayer    = localStorage.getItem('mm-player');
+  const savedFields    = localStorage.getItem('mm-fields');
+  const savedCompleted = localStorage.getItem('mm-completed');
+
+  if (savedPlayer && savedFields) {
+    state.player    = JSON.parse(savedPlayer);
+    state.fields    = JSON.parse(savedFields);
+    state.completed = new Set(JSON.parse(savedCompleted || '[]'));
+    showScreen('card');
+    renderCard();
+  } else {
+    showScreen('entry');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SCREEN ROUTING
+// ═══════════════════════════════════════════════
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+// ENTRY SCREEN
+// ═══════════════════════════════════════════════
+
+let selectedGen = null;
+
+document.querySelectorAll('.gen-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.gen-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedGen = btn.dataset.gen;
+    syncStartBtn();
+  });
+});
+
+document.getElementById('name-input').addEventListener('input', syncStartBtn);
+
+function syncStartBtn() {
+  const name = document.getElementById('name-input').value.trim();
+  document.getElementById('start-btn').disabled = !(name && selectedGen);
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  const name = document.getElementById('name-input').value.trim();
+  if (!name || !selectedGen) return;
+
+  state.player    = { name, generation: selectedGen };
+  state.fields    = shuffle([...FIELDS[selectedGen]]);
+  state.completed = new Set();
+
+  localStorage.setItem('mm-player',    JSON.stringify(state.player));
+  localStorage.setItem('mm-fields',    JSON.stringify(state.fields));
+  localStorage.setItem('mm-completed', JSON.stringify([]));
+
+  showScreen('card');
+  renderCard();
+});
+
+// ═══════════════════════════════════════════════
+// BINGO CARD
+// ═══════════════════════════════════════════════
+
+function renderCard() {
+  document.getElementById('player-display-name').textContent = state.player.name;
+  document.getElementById('player-display-gen').textContent  = GEN_LABELS[state.player.generation];
+  updateProgress();
+
+  const grid = document.getElementById('bingo-grid');
+  grid.innerHTML = '';
+
+  state.fields.forEach((field, i) => {
+    const cell = document.createElement('div');
+    cell.className  = 'bingo-cell';
+    cell.dataset.i  = i;
+
+    const isCross = field.startsWith('🤝');
+    if (isCross) cell.classList.add('cross-gen');
+
+    if (state.completed.has(i)) {
+      cell.classList.add('completed');
+      cell.textContent = '✓';
+    } else {
+      const inner = document.createElement('span');
+      inner.className = 'bingo-cell-inner';
+      inner.textContent = cellAbbrev(field);
+      cell.appendChild(inner);
+    }
+
+    cell.addEventListener('click', () => openModal(i));
+    grid.appendChild(cell);
+  });
+}
+
+function updateProgress() {
+  document.getElementById('progress-count').textContent = state.completed.size;
+}
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  if (!confirm('Neustart? Dein Fortschritt wird gelöscht.')) return;
+  localStorage.clear();
+  location.reload();
+});
+
+// ═══════════════════════════════════════════════
+// PHOTO MODAL
+// ═══════════════════════════════════════════════
+
+let activeFieldIndex = null;
+let chosenFile       = null;
+
+function openModal(index) {
+  if (state.completed.has(index)) {
+    showToast('Bereits abgehakt ✓');
+    return;
+  }
+
+  activeFieldIndex = index;
+  chosenFile       = null;
+
+  const field   = state.fields[index];
+  const isCross = field.startsWith('🤝');
+
+  const el = document.getElementById('modal-field-text');
+  el.textContent = field;
+  el.className   = 'modal-field-text' + (isCross ? ' is-cross-gen' : '');
+
+  document.getElementById('photo-preview').classList.remove('visible');
+  document.getElementById('photo-preview').src = '';
+  document.getElementById('upload-btn').disabled = true;
+  document.getElementById('photo-input').value   = '';
+
+  document.getElementById('modal-photo').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modal-photo').classList.remove('active');
+  activeFieldIndex = null;
+  chosenFile       = null;
+}
+
+document.getElementById('take-photo-btn').addEventListener('click', () => {
+  document.getElementById('photo-input').click();
+});
+
+document.getElementById('photo-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  chosenFile = file;
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const preview = document.getElementById('photo-preview');
+    preview.src = ev.target.result;
+    preview.classList.add('visible');
+    document.getElementById('upload-btn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('upload-btn').addEventListener('click', async () => {
+  if (!chosenFile || state.uploading) return;
+  await submitCompletion();
+});
+
+document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
+document.getElementById('modal-backdrop').addEventListener('click', closeModal);
+
+async function submitCompletion() {
+  state.uploading = true;
+  showLoading('Wird hochgeladen...');
+
+  try {
+    let photoUrl = null;
+
+    if (db) {
+      // Upload photo
+      const ext      = chosenFile.type === 'image/png' ? 'png' : 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+      const { error: upErr } = await db.storage
+        .from('bingo-photos')
+        .upload(fileName, chosenFile, { contentType: chosenFile.type });
+
+      if (upErr) throw upErr;
+
+      const { data: { publicUrl } } = db.storage
+        .from('bingo-photos')
+        .getPublicUrl(fileName);
+
+      photoUrl = publicUrl;
+
+      // Save completion to DB
+      const { error: dbErr } = await db.from('completions').insert({
+        player_name: state.player.name,
+        generation:  state.player.generation,
+        field_text:  state.fields[activeFieldIndex],
+        photo_url:   photoUrl,
+      });
+
+      if (dbErr) throw dbErr;
+    }
+
+    // Mark locally
+    markCompleted(activeFieldIndex);
+    closeModal();
+    showToast('Abgehakt! 🎉');
+
+  } catch (err) {
+    console.error(err);
+    showToast('Upload fehlgeschlagen. Nochmal versuchen?');
+  } finally {
+    state.uploading = false;
+    hideLoading();
+  }
+}
+
+function markCompleted(index) {
+  state.completed.add(index);
+  localStorage.setItem('mm-completed', JSON.stringify([...state.completed]));
+
+  const cell = document.querySelector(`.bingo-cell[data-i="${index}"]`);
+  if (cell) {
+    cell.classList.add('completed');
+    cell.textContent = '✓';
+  }
+
+  updateProgress();
+  checkBingo();
+}
+
+// ═══════════════════════════════════════════════
+// BINGO DETECTION
+// ═══════════════════════════════════════════════
+
+function checkBingo() {
+  const c = state.completed;
+
+  const rows = [
+    [0,1,2,3,4], [5,6,7,8,9], [10,11,12,13,14],
+    [15,16,17,18,19], [20,21,22,23,24],
+  ];
+  const cols = [
+    [0,5,10,15,20], [1,6,11,16,21], [2,7,12,17,22],
+    [3,8,13,18,23], [4,9,14,19,24],
+  ];
+  const diags = [
+    [0,6,12,18,24], [4,8,12,16,20],
+  ];
+
+  const winning = [...rows, ...cols, ...diags].find(line => line.every(i => c.has(i)));
+  if (!winning) return;
+
+  winning.forEach(i => {
+    document.querySelector(`.bingo-cell[data-i="${i}"]`)?.classList.add('bingo-flash');
+  });
+
+  setTimeout(() => {
+    showScreen('win');
+    document.getElementById('win-player-name').textContent = state.player.name;
+    fireworks();
+  }, 900);
+}
+
+function fireworks() {
+  if (typeof confetti === 'undefined') return;
+  const end = Date.now() + 3500;
+  const colors = ['#0ABDE3', '#ffffff', '#1B1F3B'];
+  (function frame() {
+    if (Date.now() > end) return;
+    confetti({ particleCount: 40, spread: 70, origin: { y: 0.6 }, colors });
+    confetti({ particleCount: 20, spread: 120, origin: { x: 0.1, y: 0.5 }, colors });
+    confetti({ particleCount: 20, spread: 120, origin: { x: 0.9, y: 0.5 }, colors });
+    requestAnimationFrame(frame);
+  })();
+}
+
+// ═══════════════════════════════════════════════
+// LIVE FEED
+// ═══════════════════════════════════════════════
+
+document.getElementById('feed-btn').addEventListener('click', () => {
+  showScreen('feed');
+  loadFeed();
+  if (db && !feedChannel) subscribeFeed();
+});
+
+document.getElementById('back-to-card-btn').addEventListener('click', () => showScreen('card'));
+
+async function loadFeed() {
+  const list = document.getElementById('feed-list');
+  list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">⏳</div><div>Wird geladen...</div></div>';
+
+  if (!db) {
+    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">📡</div><div>Supabase noch nicht konfiguriert.<br>Fotos werden lokal gespeichert.</div></div>';
+    return;
+  }
+
+  const { data, error } = await db
+    .from('completions')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(60);
+
+  if (error || !data) {
+    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">⚠️</div><div>Feed konnte nicht geladen werden.</div></div>';
+    return;
+  }
+
+  if (data.length === 0) {
+    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">📸</div><div>Noch keine Fotos — sei der Erste!</div></div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  data.forEach(item => list.appendChild(feedItem(item)));
+}
+
+function feedItem(item) {
+  const div      = document.createElement('div');
+  div.className  = 'feed-item';
+  const isCross  = item.field_text?.startsWith('🤝');
+  const fieldTxt = item.field_text?.replace('🤝 CROSS-GEN: ', '🤝 ') ?? '';
+
+  div.innerHTML = `
+    ${item.photo_url ? `<img class="feed-item-photo" src="${safe(item.photo_url)}" loading="lazy">` : ''}
+    <div class="feed-item-info">
+      <div class="feed-item-top">
+        <span class="feed-item-name">${safe(item.player_name)}</span>
+        <span class="feed-item-gen">${safe(GEN_LABELS[item.generation] ?? item.generation)}</span>
+      </div>
+      <div class="feed-item-field ${isCross ? 'is-cross-gen' : ''}">${safe(fieldTxt)}</div>
+      <div class="feed-item-time">${timeAgo(item.created_at)}</div>
+    </div>`;
+
+  return div;
+}
+
+function subscribeFeed() {
+  feedChannel = db.channel('feed')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'completions' }, payload => {
+      const list  = document.getElementById('feed-list');
+      const empty = list.querySelector('.feed-empty');
+      if (empty) empty.remove();
+      list.insertBefore(feedItem(payload.new), list.firstChild);
+    })
+    .subscribe();
+}
+
+// ═══════════════════════════════════════════════
+// WIN SCREEN
+// ═══════════════════════════════════════════════
+
+document.getElementById('win-feed-btn').addEventListener('click', () => {
+  showScreen('feed');
+  loadFeed();
+  if (db && !feedChannel) subscribeFeed();
+});
+
+document.getElementById('win-card-btn').addEventListener('click', () => showScreen('card'));
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+
+function cellAbbrev(field) {
+  if (field.startsWith('🤝')) {
+    // Cross-gen: just show who to find
+    // "🤝 CROSS-GEN: Find an Alumni — ask..." → "🤝\nAlumni"
+    const who = field.includes('Alumni') ? 'Alumni' : field.includes('G45') ? 'G45' : 'G42–44';
+    return '🤝\n' + who;
+  }
+  // Strip "Has " and take first 3–4 meaningful words
+  const clean = field.replace(/^Has /, '');
+  const words = clean.split(' ');
+  // Take up to 4 words, break naturally
+  return words.slice(0, 4).join(' ') + (words.length > 4 ? '…' : '');
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function safe(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function timeAgo(iso) {
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (s < 60)   return 'Gerade eben';
+  if (s < 3600) return `vor ${Math.floor(s/60)} Min`;
+  if (s < 86400) return `vor ${Math.floor(s/3600)} Std`;
+  return `vor ${Math.floor(s/86400)} Tagen`;
+}
+
+function showLoading(msg = 'Lädt...') {
+  document.getElementById('loading-text').textContent = msg;
+  document.getElementById('loading-overlay').classList.add('active');
+}
+
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.remove('active');
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('visible'), 3000);
+}
+
+// ═══════════════════════════════════════════════
+// GO
+// ═══════════════════════════════════════════════
+
+init();

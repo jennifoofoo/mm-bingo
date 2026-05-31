@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1B1F3B">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>M&M Founder Bingo</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+
+  <!-- SCREEN 1: Entry -->
+  <div id="screen-entry" class="screen active">
+    <div class="entry-container">
+      <img src="mm-logo.png" alt="Manage and More" class="entry-logo">
+      <div class="entry-text">
+        <h1 class="entry-title">Founder Bingo</h1>
+        <p class="entry-subtitle">Wer kennt die meisten? 🎯</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="name-input">Dein Name</label>
+        <input type="text" id="name-input" class="form-input" placeholder="Vorname" autocomplete="given-name" autocorrect="off" autocapitalize="words">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Deine Generation</label>
+        <div class="gen-picker">
+          <button class="gen-btn" data-gen="G45">
+            <span class="gen-label">G45</span>
+            <span class="gen-desc">Newest</span>
+          </button>
+          <button class="gen-btn" data-gen="Active">
+            <span class="gen-label">G42–44</span>
+            <span class="gen-desc">Active</span>
+          </button>
+          <button class="gen-btn" data-gen="Alumni">
+            <span class="gen-label">Alumni</span>
+            <span class="gen-desc">G41+</span>
+          </button>
+        </div>
+      </div>
+
+      <button id="start-btn" class="start-btn" disabled>Los geht's →</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: Bingo Card -->
+  <div id="screen-card" class="screen">
+    <div class="card-header">
+      <div class="player-info">
+        <div id="player-display-name" class="player-name">—</div>
+        <div id="player-display-gen" class="player-gen">—</div>
+      </div>
+      <div class="header-right">
+        <div class="progress-info">
+          <div id="progress-count" class="progress-count">0</div>
+          <div class="progress-label">/ 25</div>
+        </div>
+        <button id="feed-btn" class="feed-btn">📸 Feed</button>
+      </div>
+    </div>
+
+    <div id="bingo-grid" class="bingo-grid"></div>
+
+    <div class="card-footer">
+      <button id="reset-btn" class="reset-btn">↺ Neustart</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: Feed -->
+  <div id="screen-feed" class="screen">
+    <div class="feed-header">
+      <button id="back-to-card-btn" class="back-btn">←</button>
+      <div>
+        <div class="feed-title">Live Feed 📸</div>
+        <div class="feed-subtitle">Was alle so abhaken...</div>
+      </div>
+    </div>
+    <div id="feed-list" class="feed-list">
+      <div class="feed-empty">
+        <div class="feed-empty-icon">📸</div>
+        <div>Noch keine Fotos — sei der Erste!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: Win -->
+  <div id="screen-win" class="screen">
+    <div class="win-container">
+      <div class="win-emoji">🏆</div>
+      <div class="win-title">BINGO!</div>
+      <div id="win-player-name" class="win-name"></div>
+      <div class="win-subtitle">hat eine Reihe vollgemacht!</div>
+      <button id="win-feed-btn" class="win-btn">Feed ansehen 📸</button>
+      <button id="win-card-btn" class="win-btn-secondary">Weiterspielen</button>
+    </div>
+  </div>
+
+  <!-- MODAL: Photo -->
+  <div id="modal-photo" class="modal">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-handle"></div>
+      <div id="modal-field-text" class="modal-field-text"></div>
+      <img id="photo-preview" class="photo-preview" alt="Vorschau">
+      <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none">
+      <button id="take-photo-btn" class="modal-btn btn-camera">📸 Foto machen</button>
+      <button id="upload-btn" class="modal-btn btn-primary" disabled>✓ Abhaken</button>
+      <button id="modal-cancel-btn" class="modal-btn btn-ghost">Abbrechen</button>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div id="loading-text">Hochladen...</div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast"></div>
+
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
