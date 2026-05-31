@@ -98,8 +98,17 @@ const GEN_LABELS = {
 // STATE
 // ═══════════════════════════════════════════════
 
-let db = null; // Supabase client
+let db = null;
 let feedChannel = null;
+let modalOpen = false; // Fix 3: debounce double-tap
+
+// Fix 1+2: safe localStorage helpers
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+}
+function lsGet(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback; } catch(e) { return fallback; }
+}
 
 const state = {
   player: null,   // { name, generation }
@@ -125,20 +134,31 @@ function init() {
     return;
   }
 
-  // Restore session from localStorage
-  const savedPlayer    = localStorage.getItem('mm-player');
-  const savedFields    = localStorage.getItem('mm-fields');
-  const savedCompleted = localStorage.getItem('mm-completed');
+  // Restore session from localStorage (Fix 1+2: safe helpers)
+  const savedPlayer = lsGet('mm-player', null);
+  const savedFields = lsGet('mm-fields', null);
+  const savedCompleted = lsGet('mm-completed', []);
 
   if (savedPlayer && savedFields) {
-    state.player    = JSON.parse(savedPlayer);
-    state.fields    = JSON.parse(savedFields);
-    state.completed = new Set(JSON.parse(savedCompleted || '[]'));
+    state.player    = savedPlayer;
+    state.fields    = savedFields;
+    state.completed = new Set(savedCompleted);
     showScreen('card');
     renderCard();
   } else {
     showScreen('entry');
   }
+
+  // Fix 4: re-subscribe feed when returning from another app
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && feedChannel) {
+      feedChannel.unsubscribe();
+      feedChannel = null;
+      if (document.getElementById('screen-feed').classList.contains('active')) {
+        subscribeFeed();
+      }
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════
@@ -232,9 +252,9 @@ document.getElementById('start-btn').addEventListener('click', () => {
   state.fields    = shuffle([...FIELDS[selectedGen]]);
   state.completed = new Set();
 
-  localStorage.setItem('mm-player',    JSON.stringify(state.player));
-  localStorage.setItem('mm-fields',    JSON.stringify(state.fields));
-  localStorage.setItem('mm-completed', JSON.stringify([]));
+  lsSet('mm-player', state.player);
+  lsSet('mm-fields', state.fields);
+  lsSet('mm-completed', []);
 
   showScreen('card');
   renderCard();
@@ -293,10 +313,9 @@ let activeFieldIndex = null;
 let chosenFile       = null;
 
 function openModal(index) {
-  if (state.completed.has(index)) {
-    showToast('Bereits abgehakt ✓');
-    return;
-  }
+  if (state.completed.has(index)) { showToast('Bereits abgehakt ✓'); return; }
+  if (modalOpen) return; // Fix 3: debounce
+  modalOpen = true;
 
   activeFieldIndex = index;
   chosenFile       = null;
@@ -320,6 +339,7 @@ function closeModal() {
   document.getElementById('modal-photo').classList.remove('active');
   activeFieldIndex = null;
   chosenFile       = null;
+  modalOpen = false; // Fix 3: reset debounce
 }
 
 document.getElementById('take-photo-btn').addEventListener('click', () => {
@@ -353,17 +373,21 @@ async function submitCompletion() {
   state.uploading = true;
   showLoading('Wird hochgeladen...');
 
+  // Fix 5: prevent accidental back-navigation during upload
+  const onUnload = e => { e.preventDefault(); e.returnValue = ''; };
+  window.addEventListener('beforeunload', onUnload);
+
   try {
     let photoUrl = null;
 
     if (db) {
-      // Upload photo
-      const ext      = chosenFile.type === 'image/png' ? 'png' : 'jpg';
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      // Fix 6: compress image before upload
+      const compressed = await compressImage(chosenFile);
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
 
       const { error: upErr } = await db.storage
         .from('bingo photos')
-        .upload(fileName, chosenFile, { contentType: chosenFile.type });
+        .upload(fileName, compressed, { contentType: 'image/jpeg' });
 
       if (upErr) throw upErr;
 
@@ -395,12 +419,36 @@ async function submitCompletion() {
   } finally {
     state.uploading = false;
     hideLoading();
+    window.removeEventListener('beforeunload', onUnload); // Fix 5
   }
+}
+
+// Fix 6: compress image to max 1200px, JPEG 0.8
+function compressImage(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX = 1200;
+      let { width, height } = img;
+      if (width > MAX || height > MAX) {
+        if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+        else { width = Math.round(width * MAX / height); height = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => resolve(blob || file), 'image/jpeg', 0.8);
+    };
+    img.onerror = () => resolve(file); // fallback: use original
+    img.src = url;
+  });
 }
 
 function markCompleted(index) {
   state.completed.add(index);
-  localStorage.setItem('mm-completed', JSON.stringify([...state.completed]));
+  lsSet('mm-completed', [...state.completed]);
 
   const cell = document.querySelector(`.bingo-cell[data-i="${index}"]`);
   if (cell) {
