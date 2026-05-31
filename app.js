@@ -130,6 +130,7 @@ function init() {
 
   // Beamer/TV display mode: ?display=true
   if (new URLSearchParams(window.location.search).get('display') === 'true') {
+    document.body.classList.add('display-mode');
     showScreen('display');
     loadDisplayFeed();
     return;
@@ -185,6 +186,13 @@ async function loadDisplayFeed() {
 
   // Use shared feed channel (subscribeFeed handles real-time for both)
   if (!feedChannel) subscribeFeed();
+
+  // Fullscreen button
+  document.getElementById('fullscreen-btn').addEventListener('click', () => {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  });
 }
 
 async function loadDisplayLeaderboard() {

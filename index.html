@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1B1F3B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <title>M&M Founder Bingo</title>
+  <title>M&amp;M Bingo</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -18,7 +18,7 @@
     <div class="entry-container">
       <img src="mm-logo.png" alt="Manage and More" class="entry-logo">
       <div class="entry-text">
-        <h1 class="entry-title">Founder Bingo</h1>
+        <h1 class="entry-title">M&amp;M Bingo</h1>
         <p class="entry-subtitle">Wer kennt die meisten? 🎯</p>
       </div>
 
@@ -131,8 +131,11 @@
   <!-- SCREEN: Display (Beamer/TV) — Split: Feed left + Leaderboard right -->
   <div id="screen-display" class="screen">
     <div class="display-header">
-      <img src="mm-logo.png" alt="M&M" class="display-logo">
-      <div class="display-title">M&M Founder Bingo</div>
+      <div class="display-brand">
+        <span class="display-brand-mm">M&amp;M</span>
+        <span class="display-brand-bingo">Bingo</span>
+      </div>
+      <button id="fullscreen-btn" class="fullscreen-btn">⛶ Vollbild</button>
     </div>
     <div class="display-body">
       <div class="display-feed-col">

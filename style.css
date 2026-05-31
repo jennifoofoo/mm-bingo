@@ -759,9 +759,13 @@ body {
 
 /* ── DISPLAY MODE (Beamer/TV) ────────────────── */
 
+/* Display mode overrides body max-width */
+body.display-mode {
+  max-width: 100%;
+}
+
 #screen-display {
   background: var(--navy);
-  max-width: 100%;
 }
 
 .display-header {
@@ -773,15 +777,38 @@ body {
   flex-shrink: 0;
 }
 
-.display-logo {
-  height: 36px;
-  filter: brightness(0) invert(1);
+.display-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
-.display-title {
-  font-size: 20px;
-  font-weight: 800;
+.display-brand-mm {
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--teal);
+  letter-spacing: -0.5px;
+}
+
+.display-brand-bingo {
+  font-size: 22px;
+  font-weight: 700;
   color: var(--white);
+  opacity: 0.85;
+}
+
+.fullscreen-btn {
+  margin-left: auto;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: var(--font);
+  flex-shrink: 0;
 }
 
 /* Split layout */
