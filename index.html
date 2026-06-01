@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -19,23 +19,23 @@
       <img src="mm-logo.png" alt="Manage and More" class="entry-logo">
       <div class="entry-text">
         <h1 class="entry-title">M&amp;M Bingo</h1>
-        <p class="entry-subtitle">Wer kennt die meisten? 🎯</p>
+        <p class="entry-subtitle">Who's done the most? 🎯</p>
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="name-input">Dein Name</label>
-        <input type="text" id="name-input" class="form-input" placeholder="Vorname" autocomplete="given-name" autocorrect="off" autocapitalize="words">
+        <label class="form-label" for="name-input">Your name</label>
+        <input type="text" id="name-input" class="form-input" placeholder="First name" autocomplete="given-name" autocorrect="off" autocapitalize="words">
       </div>
 
       <div class="form-group">
-        <label class="form-label">Deine Generation</label>
+        <label class="form-label">Your generation</label>
         <div class="gen-picker">
           <button class="gen-btn" data-gen="G45">
             <span class="gen-label">G45</span>
             <span class="gen-desc">Newest</span>
           </button>
           <button class="gen-btn" data-gen="Active">
-            <span class="gen-label">G42–44</span>
+            <span class="gen-label">G42-44</span>
             <span class="gen-desc">Active</span>
           </button>
           <button class="gen-btn" data-gen="Alumni">
@@ -45,7 +45,7 @@
         </div>
       </div>
 
-      <button id="start-btn" class="start-btn" disabled>Los geht's →</button>
+      <button id="start-btn" class="start-btn" disabled>Let's go →</button>
     </div>
   </div>
 
@@ -53,8 +53,8 @@
   <div id="screen-card" class="screen">
     <div class="card-header">
       <div class="player-info">
-        <div id="player-display-name" class="player-name">—</div>
-        <div id="player-display-gen" class="player-gen">—</div>
+        <div id="player-display-name" class="player-name">-</div>
+        <div id="player-display-gen" class="player-gen">-</div>
       </div>
       <div class="header-right">
         <div class="progress-info">
@@ -69,7 +69,7 @@
     <div id="bingo-grid" class="bingo-grid"></div>
 
     <div class="card-footer">
-      <button id="reset-btn" class="reset-btn">↺ Neustart</button>
+      <button id="reset-btn" class="reset-btn">↺ Reset</button>
     </div>
   </div>
 
@@ -79,7 +79,7 @@
       <button id="back-from-lb-btn" class="back-btn">←</button>
       <div>
         <div class="feed-title">Leaderboard 🏆</div>
-        <div class="feed-subtitle">Wer hat die meisten Felder?</div>
+        <div class="feed-subtitle">Who has the most fields?</div>
       </div>
     </div>
     <div id="lb-list" class="lb-list"></div>
@@ -91,13 +91,13 @@
       <button id="back-to-card-btn" class="back-btn">←</button>
       <div>
         <div class="feed-title">Live Feed 📸</div>
-        <div class="feed-subtitle">Was alle so abhaken...</div>
+        <div class="feed-subtitle">What everyone's checking off...</div>
       </div>
     </div>
     <div id="feed-list" class="feed-list">
       <div class="feed-empty">
         <div class="feed-empty-icon">📸</div>
-        <div>Noch keine Fotos. Sei der Erste!</div>
+        <div>No photos yet. Be the first!</div>
       </div>
     </div>
   </div>
@@ -108,9 +108,9 @@
       <div class="win-emoji">🏆</div>
       <div class="win-title">BINGO!</div>
       <div id="win-player-name" class="win-name"></div>
-      <div class="win-subtitle">hat eine Reihe vollgemacht!</div>
-      <button id="win-feed-btn" class="win-btn">Feed ansehen 📸</button>
-      <button id="win-card-btn" class="win-btn-secondary">Weiterspielen</button>
+      <div class="win-subtitle">completed the challenge!</div>
+      <button id="win-feed-btn" class="win-btn">See the feed 📸</button>
+      <button id="win-card-btn" class="win-btn-secondary">Keep playing</button>
     </div>
   </div>
 
@@ -120,20 +120,20 @@
     <div class="modal-content">
       <div class="modal-handle"></div>
       <div id="modal-field-text" class="modal-field-text"></div>
-      <img id="photo-preview" class="photo-preview" alt="Vorschau">
+      <img id="photo-preview" class="photo-preview" alt="Preview">
       <input type="file" id="photo-input" accept="image/*" style="display:none">
-      <button id="take-photo-btn" class="modal-btn btn-camera">📸 Foto machen</button>
-      <button id="upload-btn" class="modal-btn btn-primary" disabled>✓ Abhaken</button>
-      <button id="modal-cancel-btn" class="modal-btn btn-ghost">Abbrechen</button>
+      <button id="take-photo-btn" class="modal-btn btn-camera">📸 Take a photo</button>
+      <button id="upload-btn" class="modal-btn btn-primary" disabled>✓ Check it off</button>
+      <button id="modal-cancel-btn" class="modal-btn btn-ghost">Cancel</button>
     </div>
   </div>
 
-  <!-- SCREEN: Display (Beamer/TV) — Split: Feed left + Leaderboard right -->
+  <!-- SCREEN: Display (TV/Beamer) -->
   <div id="screen-display" class="screen">
     <div class="display-header">
       <img src="mm-logo.png" alt="M&M" class="display-logo">
       <div class="display-title">Bingo</div>
-      <button id="fullscreen-btn" class="fullscreen-btn">⛶ Vollbild</button>
+      <button id="fullscreen-btn" class="fullscreen-btn">⛶ Fullscreen</button>
     </div>
     <div class="display-body">
       <div class="display-feed-col">
@@ -150,7 +150,7 @@
   <!-- LOADING -->
   <div id="loading-overlay" class="loading-overlay">
     <div class="spinner"></div>
-    <div id="loading-text">Hochladen...</div>
+    <div id="loading-text">Uploading...</div>
   </div>
 
   <!-- TOAST -->

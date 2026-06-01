@@ -89,9 +89,9 @@ const FIELDS = {
 };
 
 const GEN_LABELS = {
-  G45:    'Gen 45 · Newest',
-  Active: 'Gen 42–44 · Active',
-  Alumni: 'Alumni · G41+',
+  G45:    'Gen 45 - Newest',
+  Active: 'Gen 42-44 - Active',
+  Alumni: 'Alumni - G41+',
 };
 
 // ═══════════════════════════════════════════════
@@ -179,12 +179,12 @@ fsBtn.addEventListener('click', () => {
   }
 });
 document.addEventListener('fullscreenchange', () => {
-  fsBtn.textContent = document.fullscreenElement ? '✕ Vollbild' : '⛶ Vollbild';
+  fsBtn.textContent = document.fullscreenElement ? '✕ Fullscreen' : '⛶ Fullscreen';
 });
 
 async function loadDisplayFeed() {
   if (!db) {
-    document.getElementById('display-list').innerHTML = '<div class="display-empty">Supabase nicht konfiguriert</div>';
+    document.getElementById('display-list').innerHTML = '<div class="display-empty">Supabase not configured</div>';
     return;
   }
 
@@ -213,7 +213,7 @@ async function loadDisplayLeaderboard() {
 function renderDisplayFeed(items) {
   const list = document.getElementById('display-list');
   list.innerHTML = items.length === 0
-    ? '<div class="display-empty">Noch keine Fotos -los geht\'s! 🎯</div>'
+    ? '<div class="display-empty">No photos yet. Let\'s go! 🎯</div>'
     : '';
   items.forEach(item => list.appendChild(displayItem(item)));
 }
@@ -320,7 +320,7 @@ function updateProgress() {
 }
 
 document.getElementById('reset-btn').addEventListener('click', () => {
-  if (!confirm('Neustart? Dein Fortschritt wird gelöscht.')) return;
+  if (!confirm('Reset? Your progress will be deleted.')) return;
   localStorage.clear();
   location.reload();
 });
@@ -333,7 +333,7 @@ let activeFieldIndex = null;
 let chosenFile       = null;
 
 function openModal(index) {
-  if (state.completed.has(index)) { showToast('Bereits abgehakt ✓'); return; }
+  if (state.completed.has(index)) { showToast('Already checked off ✓'); return; }
   if (modalOpen) return; // Fix 3: debounce
   modalOpen = true;
 
@@ -391,7 +391,7 @@ document.getElementById('modal-backdrop').addEventListener('click', closeModal);
 
 async function submitCompletion() {
   state.uploading = true;
-  showLoading('Wird hochgeladen...');
+  showLoading('Uploading...');
 
   // Fix 5: prevent accidental back-navigation during upload
   const onUnload = e => { e.preventDefault(); e.returnValue = ''; };
@@ -431,11 +431,11 @@ async function submitCompletion() {
     // Mark locally
     markCompleted(activeFieldIndex);
     closeModal();
-    showToast('Abgehakt! 🎉');
+    showToast('Checked off! 🎉');
 
   } catch (err) {
     console.error(err);
-    showToast('Upload fehlgeschlagen. Nochmal versuchen?');
+    showToast('Upload failed. Try again?');
   } finally {
     state.uploading = false;
     hideLoading();
@@ -567,7 +567,7 @@ function scheduleLeaderboardRefresh() {
 
 async function loadLeaderboard(targetEl = document.getElementById('lb-list')) {
   if (!db) {
-    targetEl.innerHTML = '<div class="lb-empty">Supabase nicht verbunden</div>';
+    targetEl.innerHTML = '<div class="lb-empty">Supabase not connected</div>';
     return;
   }
 
@@ -575,8 +575,8 @@ async function loadLeaderboard(targetEl = document.getElementById('lb-list')) {
     .from('completions')
     .select('player_name, generation');
 
-  if (error || !data) { targetEl.innerHTML = '<div class="lb-empty">Fehler beim Laden</div>'; return; }
-  if (data.length === 0) { targetEl.innerHTML = '<div class="lb-empty">Noch niemand dabei -mach das erste Foto! 📸</div>'; return; }
+  if (error || !data) { targetEl.innerHTML = '<div class="lb-empty">Could not load</div>'; return; }
+  if (data.length === 0) { targetEl.innerHTML = '<div class="lb-empty">Nobody here yet. Take the first photo! 📸</div>'; return; }
 
   // Aggregate client-side (avoids need for DB functions)
   const counts = {};
@@ -606,10 +606,10 @@ async function loadLeaderboard(targetEl = document.getElementById('lb-list')) {
 
 async function loadFeed() {
   const list = document.getElementById('feed-list');
-  list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">⏳</div><div>Wird geladen...</div></div>';
+  list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">⏳</div><div>Loading...</div></div>';
 
   if (!db) {
-    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">📡</div><div>Supabase noch nicht konfiguriert.<br>Fotos werden lokal gespeichert.</div></div>';
+    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">📡</div><div>Supabase not configured.<br>Photos saved locally only.</div></div>';
     return;
   }
 
@@ -620,12 +620,12 @@ async function loadFeed() {
     .limit(60);
 
   if (error || !data) {
-    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">⚠️</div><div>Feed konnte nicht geladen werden.</div></div>';
+    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">⚠️</div><div>Could not load feed.</div></div>';
     return;
   }
 
   if (data.length === 0) {
-    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">📸</div><div>Noch keine Fotos -sei der Erste!</div></div>';
+    list.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">📸</div><div>No photos yet. Be the first!</div></div>';
     return;
   }
 
@@ -728,10 +728,10 @@ function safe(str) {
 
 function timeAgo(iso) {
   const s = Math.floor((Date.now() - new Date(iso)) / 1000);
-  if (s < 60)   return 'Gerade eben';
-  if (s < 3600) return `vor ${Math.floor(s/60)} Min`;
-  if (s < 86400) return `vor ${Math.floor(s/3600)} Std`;
-  return `vor ${Math.floor(s/86400)} Tagen`;
+  if (s < 60)   return 'Just now';
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
 }
 
 function showLoading(msg = 'Lädt...') {
