@@ -640,7 +640,7 @@ function feedItem(item) {
   const fieldTxt = item.field_text?.replace('🤝 CROSS-GEN: ', '🤝 ') ?? '';
 
   div.innerHTML = `
-    ${item.photo_url ? `<img class="feed-item-photo" src="${safe(item.photo_url)}" loading="lazy">` : ''}
+    ${item.photo_url ? `<div class="feed-item-photo-wrap"><img class="feed-item-photo" src="${safe(item.photo_url)}" loading="lazy"></div>` : ''}
     <div class="feed-item-info">
       <div class="feed-item-top">
         <span class="feed-item-name">${safe(item.player_name)}</span>

@@ -527,9 +527,18 @@ body {
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
-.feed-item-photo {
+.feed-item-photo-wrap {
   width: 100%;
-  aspect-ratio: 4/3;
+  padding-bottom: 75%; /* 4:3 ratio, works on all iOS/Safari */
+  position: relative;
+  overflow: hidden;
+}
+
+.feed-item-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: top center;
   display: block;
