@@ -151,14 +151,10 @@ function init() {
     showScreen('entry');
   }
 
-  // Fix 4: re-subscribe feed when returning from another app
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && feedChannel) {
-      feedChannel.unsubscribe();
-      feedChannel = null;
-      if (document.getElementById('screen-feed').classList.contains('active')) {
-        subscribeFeed();
-      }
+    if (document.visibilityState === 'visible' &&
+        document.getElementById('screen-feed').classList.contains('active')) {
+      subscribeFeed();
     }
   });
 }
@@ -382,8 +378,11 @@ document.getElementById('photo-input').addEventListener('change', e => {
 });
 
 document.getElementById('upload-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('upload-btn');
   if (!chosenFile || state.uploading) return;
+  btn.disabled = true;
   await submitCompletion();
+  btn.disabled = false;
 });
 
 document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
@@ -653,6 +652,10 @@ function feedItem(item) {
 }
 
 function subscribeFeed() {
+  if (feedChannel) {
+    feedChannel.unsubscribe();
+    feedChannel = null;
+  }
   feedChannel = db.channel('feed')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'completions' }, payload => {
       // Update feed list
@@ -667,13 +670,7 @@ function subscribeFeed() {
         const de = dList.querySelector('.display-empty');
         if (de) de.remove();
         dList.insertBefore(displayItem(payload.new), dList.firstChild);
-        // Animate out + remove oldest if over 6
-        while (dList.children.length > 6) {
-          const last = dList.lastChild;
-          last.classList.add('removing');
-          setTimeout(() => last.remove(), 300);
-          break;
-        }
+        while (dList.children.length > 6) dList.lastChild.remove();
       }
 
       // Debounced leaderboard refresh
