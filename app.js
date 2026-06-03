@@ -652,10 +652,24 @@ function feedItem(item) {
 
   if (item.photo_url) {
     const wrap = div.querySelector('.feed-item-photo-wrap');
-    wrap.addEventListener('mousedown',  () => openLb(item.photo_url));
-    wrap.addEventListener('touchstart', () => openLb(item.photo_url), { passive: true });
-    wrap.addEventListener('mouseup',  closeLb);
-    wrap.addEventListener('touchend', closeLb);
+    let pressTimer = null;
+
+    wrap.addEventListener('touchstart', () => {
+      pressTimer = setTimeout(() => openLb(item.photo_url), 400);
+    }, { passive: true });
+
+    wrap.addEventListener('touchmove', () => {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }, { passive: true });
+
+    wrap.addEventListener('touchend', () => {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+      if (document.getElementById('lightbox').classList.contains('open')) closeLb();
+    });
+
+    wrap.addEventListener('click', () => openLb(item.photo_url));
   }
 
   return div;
