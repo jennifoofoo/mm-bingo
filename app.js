@@ -393,42 +393,19 @@ async function submitCompletion() {
   state.uploading = true;
   showLoading('Uploading...');
 
-  // Fix 5: prevent accidental back-navigation during upload
   const onUnload = e => { e.preventDefault(); e.returnValue = ''; };
   window.addEventListener('beforeunload', onUnload);
 
   try {
-    let photoUrl = null;
+    const photoUrl = db ? await uploadWithRetry(chosenFile) : null;
 
-    if (db) {
-      // Fix 6: compress image before upload
-      const compressed = await compressImage(chosenFile);
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+    await db.from('completions').insert({
+      player_name: state.player.name,
+      generation:  state.player.generation,
+      field_text:  state.fields[activeFieldIndex],
+      photo_url:   photoUrl,
+    }).throwOnError();
 
-      const { error: upErr } = await db.storage
-        .from('bingo photos')
-        .upload(fileName, compressed, { contentType: 'image/jpeg' });
-
-      if (upErr) throw upErr;
-
-      const { data: { publicUrl } } = db.storage
-        .from('bingo photos')
-        .getPublicUrl(fileName);
-
-      photoUrl = publicUrl;
-
-      // Save completion to DB
-      const { error: dbErr } = await db.from('completions').insert({
-        player_name: state.player.name,
-        generation:  state.player.generation,
-        field_text:  state.fields[activeFieldIndex],
-        photo_url:   photoUrl,
-      });
-
-      if (dbErr) throw dbErr;
-    }
-
-    // Mark locally
     markCompleted(activeFieldIndex);
     closeModal();
     showToast('Checked off! 🎉');
@@ -439,8 +416,26 @@ async function submitCompletion() {
   } finally {
     state.uploading = false;
     hideLoading();
-    window.removeEventListener('beforeunload', onUnload); // Fix 5
+    window.removeEventListener('beforeunload', onUnload);
   }
+}
+
+async function uploadWithRetry(file, attempts = 3) {
+  const compressed = await compressImage(file);
+  const fileName   = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+
+  for (let i = 0; i < attempts; i++) {
+    const { error } = await db.storage
+      .from('bingo photos')
+      .upload(fileName, compressed, { contentType: 'image/jpeg' });
+
+    if (!error) break;
+    if (i === attempts - 1) throw error;
+    await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    showLoading(`Retrying... (${i + 2}/${attempts})`);
+  }
+
+  return db.storage.from('bingo photos').getPublicUrl(fileName).data.publicUrl;
 }
 
 // Fix 6: compress image to max 1200px, JPEG 0.8
