@@ -650,6 +650,14 @@ function feedItem(item) {
       <div class="feed-item-time">${timeAgo(item.created_at)}</div>
     </div>`;
 
+  if (item.photo_url) {
+    const wrap = div.querySelector('.feed-item-photo-wrap');
+    wrap.addEventListener('mousedown',  () => openLb(item.photo_url));
+    wrap.addEventListener('touchstart', () => openLb(item.photo_url), { passive: true });
+    wrap.addEventListener('mouseup',  closeLb);
+    wrap.addEventListener('touchend', closeLb);
+  }
+
   return div;
 }
 
@@ -751,6 +759,20 @@ function showToast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('visible'), 3000);
 }
+
+// ═══════════════════════════════════════════════
+// LIGHTBOX
+// ═══════════════════════════════════════════════
+
+function openLb(url) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLb() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.getElementById('lightbox').addEventListener('mouseup', closeLb);
+document.getElementById('lightbox').addEventListener('touchend', closeLb);
 
 // ═══════════════════════════════════════════════
 // GO
