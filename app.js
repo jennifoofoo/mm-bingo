@@ -658,11 +658,13 @@ function subscribeFeed() {
   }
   feedChannel = db.channel('feed')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'completions' }, payload => {
-      // Update feed list
-      const list  = document.getElementById('feed-list');
-      const empty = list.querySelector('.feed-empty');
+      // Update feed list — keep scroll position if user scrolled down
+      const list    = document.getElementById('feed-list');
+      const atTop   = list.scrollTop < 50;
+      const empty   = list.querySelector('.feed-empty');
       if (empty) empty.remove();
       list.insertBefore(feedItem(payload.new), list.firstChild);
+      if (atTop) list.scrollTop = 0;
 
       // Update display feed (only items with photos)
       const dList = document.getElementById('display-list');
