@@ -189,7 +189,7 @@ async function loadDisplayFeed() {
     .select('*')
     .not('photo_url', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(6);
+    .limit(60);
 
   renderDisplayFeed(data || []);
 
@@ -672,7 +672,6 @@ function subscribeFeed() {
         const de = dList.querySelector('.display-empty');
         if (de) de.remove();
         dList.insertBefore(displayItem(payload.new), dList.firstChild);
-        while (dList.children.length > 6) dList.lastChild.remove();
       }
 
       // Debounced leaderboard refresh
