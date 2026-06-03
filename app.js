@@ -651,25 +651,7 @@ function feedItem(item) {
     </div>`;
 
   if (item.photo_url) {
-    const wrap = div.querySelector('.feed-item-photo-wrap');
-    let pressTimer = null;
-
-    wrap.addEventListener('touchstart', () => {
-      pressTimer = setTimeout(() => openLb(item.photo_url), 400);
-    }, { passive: true });
-
-    wrap.addEventListener('touchmove', () => {
-      clearTimeout(pressTimer);
-      pressTimer = null;
-    }, { passive: true });
-
-    wrap.addEventListener('touchend', () => {
-      clearTimeout(pressTimer);
-      pressTimer = null;
-      if (document.getElementById('lightbox').classList.contains('open')) closeLb();
-    });
-
-    wrap.addEventListener('click', () => openLb(item.photo_url));
+    div.querySelector('.feed-item-photo-wrap').addEventListener('click', () => openLb(item.photo_url));
   }
 
   return div;
@@ -785,8 +767,7 @@ function openLb(url) {
 function closeLb() {
   document.getElementById('lightbox').classList.remove('open');
 }
-document.getElementById('lightbox').addEventListener('mouseup', closeLb);
-document.getElementById('lightbox').addEventListener('touchend', closeLb);
+document.getElementById('lightbox').addEventListener('click', closeLb);
 
 // ═══════════════════════════════════════════════
 // GO
