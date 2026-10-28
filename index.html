@@ -2,164 +2,153 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#1B1F3B">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#07080F">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <title>M&amp;M Bingo</title>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>M&amp;M Startup Tour Berlin 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
+  <div class="grain" aria-hidden="true"></div>
 
-  <!-- SCREEN 1: Entry -->
-  <div id="screen-entry" class="screen active">
-    <div class="entry-container">
-      <img src="mm-logo.png" alt="Manage and More" class="entry-logo">
-      <div class="entry-text">
-        <h1 class="entry-title">M&amp;M Bingo</h1>
-        <p class="entry-subtitle">Who's done the most? 🎯</p>
+  <!-- SCREEN: Splash -->
+  <section id="screen-splash" class="screen">
+    <div class="splash">
+      <img src="mm-logo.png" alt="Manage and More" class="logo splash-logo reveal" style="--d:0">
+      <h1 class="splash-title">
+        <span class="reveal" style="--d:1">Startup</span>
+        <span class="reveal outline" style="--d:2">Tour</span>
+        <span class="reveal accent" style="--d:3">Berlin</span>
+        <span class="reveal year" style="--d:4">2026</span>
+      </h1>
+      <p class="splash-sub reveal" style="--d:5"><span id="splash-task-count">15</span> challenges · <span id="splash-max-points">38</span> points · one leaderboard</p>
+
+      <div id="name-step" class="name-step">
+        <label class="field-label" for="name-input">What do people call you?</label>
+        <input type="text" id="name-input" class="name-input" placeholder="First name + initial" maxlength="40"
+               autocomplete="given-name" autocorrect="off" autocapitalize="words" enterkeyhint="go">
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="name-input">Your name</label>
-        <input type="text" id="name-input" class="form-input" placeholder="First name" autocomplete="given-name" autocorrect="off" autocapitalize="words">
+      <button id="go-btn" class="go-btn reveal" style="--d:6">
+        <span>Let's fucking go</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        <span>Startup Tour ✦ Berlin 2026 ✦ Manage and More ✦ Startup Tour ✦ Berlin 2026 ✦ Manage and More ✦&nbsp;</span>
+        <span>Startup Tour ✦ Berlin 2026 ✦ Manage and More ✦ Startup Tour ✦ Berlin 2026 ✦ Manage and More ✦&nbsp;</span>
       </div>
+    </div>
+  </section>
 
-      <div class="form-group">
-        <label class="form-label">Your generation</label>
-        <div class="gen-picker">
-          <button class="gen-btn" data-gen="G45">
-            <span class="gen-label">G45</span>
-            <span class="gen-desc">Newest</span>
-          </button>
-          <button class="gen-btn" data-gen="Active">
-            <span class="gen-label">G42-44</span>
-            <span class="gen-desc">Active</span>
-          </button>
-          <button class="gen-btn" data-gen="Alumni">
-            <span class="gen-label">Alumni</span>
-            <span class="gen-desc">G41+</span>
-          </button>
+  <!-- APP SHELL: tasks / feed / ranking -->
+  <section id="screen-app" class="screen">
+    <header class="app-header">
+      <div class="score-row">
+        <div>
+          <div class="eyebrow">Berlin 2026</div>
+          <div id="player-name" class="player-name">-</div>
+        </div>
+        <div class="score">
+          <div class="score-num"><span id="score-points">0</span><span class="score-max">/<span id="score-max">38</span></span></div>
+          <div id="score-rank" class="score-rank">Not ranked yet</div>
         </div>
       </div>
+      <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+    </header>
 
-      <button id="start-btn" class="start-btn" disabled>Let's go →</button>
-    </div>
-  </div>
-
-  <!-- SCREEN 2: Bingo Card -->
-  <div id="screen-card" class="screen">
-    <div class="card-header">
-      <div class="player-info">
-        <div id="player-display-name" class="player-name">-</div>
-        <div id="player-display-gen" class="player-gen">-</div>
+    <main class="views">
+      <div id="view-tasks" class="view active">
+        <ul id="task-list" class="task-list"></ul>
+        <button id="reset-btn" class="reset-btn">Not you? Switch player</button>
       </div>
-      <div class="header-right">
-        <div class="progress-info">
-          <div id="progress-count" class="progress-count">0</div>
-          <div class="progress-label">/ 25</div>
-        </div>
-        <button id="feed-btn" class="feed-btn">📸 Feed</button>
-        <button id="lb-btn" class="feed-btn">🏆</button>
+
+      <div id="view-feed" class="view">
+        <button id="new-pill" class="new-pill">↑ <span id="new-count">0</span> new</button>
+        <div id="feed-list" class="feed-list"></div>
       </div>
-    </div>
 
-    <div id="bingo-grid" class="bingo-grid"></div>
-
-    <div class="card-footer">
-      <button id="reset-btn" class="reset-btn">↺ Reset</button>
-    </div>
-  </div>
-
-  <!-- SCREEN: Leaderboard -->
-  <div id="screen-leaderboard" class="screen">
-    <div class="feed-header">
-      <button id="back-from-lb-btn" class="back-btn">←</button>
-      <div>
-        <div class="feed-title">Leaderboard 🏆</div>
-        <div class="feed-subtitle">Who has the most fields?</div>
+      <div id="view-ranking" class="view">
+        <h2 class="view-title">Leaderboard</h2>
+        <ol id="lb-list" class="lb-list"></ol>
       </div>
-    </div>
-    <div id="lb-list" class="lb-list"></div>
-  </div>
+    </main>
 
-  <!-- SCREEN 3: Feed -->
-  <div id="screen-feed" class="screen">
-    <div class="feed-header">
-      <button id="back-to-card-btn" class="back-btn">←</button>
-      <div>
-        <div class="feed-title">Live Feed 📸</div>
-        <div class="feed-subtitle">What everyone's checking off...</div>
-      </div>
-    </div>
-    <div id="feed-list" class="feed-list">
-      <div class="feed-empty">
-        <div class="feed-empty-icon">📸</div>
-        <div>No photos yet. Be the first!</div>
-      </div>
-    </div>
-  </div>
+    <nav class="tabbar">
+      <button class="tab active" data-view="tasks">
+        <svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>
+        <span>Tasks</span>
+      </button>
+      <button class="tab" data-view="feed">
+        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/></svg>
+        <span>Feed</span><i id="feed-dot" class="tab-dot"></i>
+      </button>
+      <button class="tab" data-view="ranking">
+        <svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zM7 6H4v1a3 3 0 003 3M17 6h3v1a3 3 0 01-3 3"/></svg>
+        <span>Ranking</span>
+      </button>
+    </nav>
+  </section>
 
-  <!-- SCREEN 4: Win -->
-  <div id="screen-win" class="screen">
-    <div class="win-container">
-      <div class="win-emoji">🏆</div>
-      <div class="win-title">BINGO!</div>
-      <div id="win-player-name" class="win-name"></div>
-      <div class="win-subtitle">completed the challenge!</div>
-      <button id="win-feed-btn" class="win-btn">See the feed 📸</button>
-      <button id="win-card-btn" class="win-btn-secondary">Keep playing</button>
-    </div>
-  </div>
-
-  <!-- MODAL: Photo -->
-  <div id="modal-photo" class="modal">
-    <div class="modal-backdrop" id="modal-backdrop"></div>
-    <div class="modal-content">
-      <div class="modal-handle"></div>
-      <div id="modal-field-text" class="modal-field-text"></div>
-      <img id="photo-preview" class="photo-preview" alt="Preview">
-      <input type="file" id="photo-input" accept="image/*" style="display:none">
-      <button id="take-photo-btn" class="modal-btn btn-camera">📸 Take a photo</button>
-      <button id="upload-btn" class="modal-btn btn-primary" disabled>✓ Check it off</button>
-      <button id="modal-cancel-btn" class="modal-btn btn-ghost">Cancel</button>
-    </div>
-  </div>
-
-  <!-- SCREEN: Display (TV/Beamer) -->
-  <div id="screen-display" class="screen">
-    <div class="display-header">
-      <img src="mm-logo.png" alt="M&M" class="display-logo">
-      <div class="display-title">Bingo</div>
-      <button id="fullscreen-btn" class="fullscreen-btn">⛶ Fullscreen</button>
-    </div>
+  <!-- SCREEN: Display (TV/Beamer) — ?display=true -->
+  <section id="screen-display" class="screen">
+    <header class="display-header">
+      <img src="mm-logo.png" alt="Manage and More" class="logo display-logo">
+      <div class="display-title">Startup Tour <span class="accent">Berlin 2026</span></div>
+      <button id="fullscreen-btn" class="ghost-btn">⛶ Fullscreen</button>
+    </header>
     <div class="display-body">
-      <div class="display-feed-col">
-        <div class="display-col-header">📸 Live Feed</div>
-        <div id="display-list" class="display-list"></div>
-      </div>
       <div class="display-lb-col">
-        <div class="display-col-header">🏆 Leaderboard</div>
-        <div id="display-lb" class="display-lb"></div>
+        <h2 class="view-title">Leaderboard</h2>
+        <ol id="display-lb" class="lb-list"></ol>
       </div>
+      <div id="display-feed" class="display-feed-col feed-list"></div>
+    </div>
+  </section>
+
+  <!-- SHEET: complete a task -->
+  <div id="sheet" class="sheet" aria-hidden="true">
+    <div id="sheet-backdrop" class="sheet-backdrop"></div>
+    <div class="sheet-panel" role="dialog" aria-modal="true">
+      <div class="sheet-handle"></div>
+      <div class="sheet-top">
+        <span id="sheet-points" class="pts-badge big">+3</span>
+        <p id="sheet-task" class="sheet-task"></p>
+      </div>
+      <button id="photo-drop" class="photo-drop">
+        <img id="photo-preview" class="photo-preview" alt="">
+        <span class="photo-drop-empty">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/></svg>
+          <b>Add your proof</b>
+          <small>Take a photo or pick one</small>
+        </span>
+      </button>
+      <input type="file" id="photo-input" accept="image/*" hidden>
+      <button id="submit-btn" class="go-btn full" disabled><span>Check it off</span></button>
+      <button id="sheet-cancel" class="ghost-btn full">Cancel</button>
     </div>
   </div>
 
-  <!-- LOADING -->
-  <div id="loading-overlay" class="loading-overlay">
-    <div class="spinner"></div>
-    <div id="loading-text">Uploading...</div>
+  <!-- OVERLAY: all done -->
+  <div id="all-done" class="all-done" aria-hidden="true">
+    <div class="all-done-inner">
+      <div class="all-done-num"><span id="all-done-points">38</span></div>
+      <div class="all-done-title">Every. Single. Task.</div>
+      <p>You're a legend. Now go hype the others.</p>
+      <button id="all-done-close" class="go-btn"><span>See the ranking</span></button>
+    </div>
   </div>
 
-  <!-- TOAST -->
+  <div id="loading" class="loading"><div class="spinner"></div><div id="loading-text">Uploading...</div></div>
   <div id="toast" class="toast"></div>
-
-  <!-- LIGHTBOX -->
-  <div id="lightbox" class="lightbox">
-    <img id="lightbox-img" src="" alt="">
-  </div>
+  <div id="lightbox" class="lightbox"><img id="lightbox-img" alt=""></div>
 
   <script src="supabase-config.js"></script>
   <script src="app.js"></script>

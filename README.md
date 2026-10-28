@@ -1,4 +1,4 @@
-# M&M Founder Bingo
+# M&M Startup Tour Berlin 2026
 
 ## Setup in 5 Schritten
 
@@ -7,15 +7,15 @@
 - Namen: `mm-bingo`, Region: Frankfurt (eu-central-1)
 - Passwort notieren (brauchst du nicht in der App, nur intern)
 
-### 2. Datenbank einrichten
+### 2. Datenbank + Storage einrichten
 - In Supabase: SQL Editor → New Query
 - Inhalt von `schema.sql` reinkopieren → Run
+- Legt Tasks, Completions, Leaderboard-View, Realtime, den Bucket `bingo-photos` und die Upload-Policies an
+- Alte Party-Daten werden nach `completions_mm_party` archiviert, nicht gelöscht
 
-### 3. Photo Storage einrichten
-- In Supabase: Storage → New Bucket
-- Name: `bingo-photos`
-- ✅ Public bucket aktivieren
-- Bucket öffnen → Policies → "Allow public access for all" aktivieren
+### 3. Punkte ändern
+- Table Editor → `tasks` → `points` anpassen, wirkt sofort ohne Deploy
+- Schummel-Einträge: Table Editor → `completions` → Zeile löschen, Leaderboard aktualisiert sich live
 
 ### 4. Credentials eintragen
 - In Supabase: Settings → API
@@ -42,12 +42,5 @@ Die Bingo-Karte + Fortschritt wird in localStorage gespeichert.
 
 ---
 
-## Generationen-Logik
-| Auswahl | Wer |
-|---|---|
-| G45 | Newest cohort — G45 |
-| G42–44 | Aktuelle Members |
-| Alumni | G41 und älter |
-
-Cross-Gen Felder (rot markiert) erfordern ein Foto mit einer Person
-aus einer anderen Generation — das ist der ganze Witz.
+## Beamer
+`https://mm-bingo.vercel.app/?display=true` zeigt Leaderboard + Live-Feed.
