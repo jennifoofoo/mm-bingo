@@ -222,5 +222,5 @@ on conflict (id) do update set text = excluded.text, points = excluded.points, c
 update tasks set points = 5 where id = 'fake_founder';
 insert into tasks (id, text, points, sort, category) values
   ('iceye_defense', 'At ICEYE, ask the defense question nobody else dares to ask, and get a real answer', 5, 26, 'special'),
-  ('real_offer',    'Leave Berlin with a real offer: job, internship or investor intro from someone you met on the tour (screenshot counts)', 6, 27, 'special')
+  ('real_offer',    'Leave Berlin with a real offer: job, internship or investor intro from someone you met on the tour (screenshot counts)', 10, 27, 'special')
 on conflict (id) do update set text = excluded.text, points = excluded.points, category = excluded.category;
