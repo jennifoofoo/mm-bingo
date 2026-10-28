@@ -537,7 +537,7 @@ function renderTasks() {
     card.innerHTML = `<span class="sec-icon">${catIcon(RANDOM_CAT)}</span>
       <span class="sec-text"><b>Share a random moment</b></span>
       <span class="task-cta"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>`;
-    card.addEventListener('click', () => openSheet(SNAP));
+    card.addEventListener('click', openSnapSheet);
     list.appendChild(card);
   }
   if (state.cat === 'random') return;
@@ -598,6 +598,17 @@ function updateRankLabel() {
 // ═══════════════════════════════════════════════
 // COMPLETE A TASK (bottom sheet)
 // ═══════════════════════════════════════════════
+
+// Against feed spam: 20 random photos per person per Berlin day (the DB enforces it too)
+const SNAP_DAILY_LIMIT = 20;
+async function openSnapSheet() {
+  if (db && state.player) {
+    const { count } = await withTimeout(db.from('snaps').select('id', { count: 'exact', head: true })
+      .eq('player_id', state.player.id).gte('created_at', `${dayKey(new Date())}T00:00:00+01:00`), 4000).catch(() => ({}));
+    if (count >= SNAP_DAILY_LIMIT) { showToast(`That's ${SNAP_DAILY_LIMIT} random moments today. More tomorrow!`); buzz(60); return; }
+  }
+  openSheet(SNAP);
+}
 
 function openSheet(taskId) {
   if (state.uploading) return;
