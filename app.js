@@ -31,6 +31,7 @@ const FALLBACK_AGENDA = [
 
 const BUCKET       = 'bingo-photos';
 const ORIGINALS_BUCKET = 'bingo-originals';
+const SNAP = '__snap__'; // sheet target for a random photo (no task, no points)
 const FEED_PAGE    = 10;
 const LB_POLL_MS   = 20000;
 const LS_PLAYER    = 'bt-player';
@@ -108,6 +109,7 @@ async function init() {
     subscribe();                 // sockets often die while the phone is locked
     refreshLeaderboard();
     (displayFeed ?? phoneFeed).catchUp();
+    if (!displayFeed) snapFeed.catchUp();
     if (state.player) { syncMyCompletions(); flushQueue(); }
   });
 }
@@ -139,7 +141,7 @@ const isLive = () => Date.now() >= state.kickoff.getTime();
 
 async function loadAgenda() {
   if (!db) return;
-  const { data } = await db.from('agenda').select('starts_at, ends_at, title, note').order('starts_at').order('id');
+  const { data } = await db.from('agenda').select('*').order('starts_at').order('id');
   if (data?.length) state.agenda = data;
 }
 
@@ -313,6 +315,7 @@ function enterApp() {
     if (document.visibilityState !== 'visible') return;
     refreshLeaderboard();
     phoneFeed.catchUp();
+    snapFeed.catchUp();
     flushQueue();
   }, LB_POLL_MS);
 }
@@ -326,7 +329,7 @@ function switchView(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${view}`));
   if (view === 'feed') {
     $('feed-dot').classList.remove('on');
-    phoneFeed.start();
+    (feedMode === 'random' ? snapFeed : phoneFeed).start();
   }
   if (view === 'ranking') refreshLeaderboard();
   if (view === 'agenda') renderAgenda();
@@ -379,6 +382,7 @@ function renderAgenda(list = $('agenda-list'), scrollToToday = true) {
         <div>
           <div class="plan-title">${slot.map(i => safe(i.title)).join(' <i>or</i> ')}${status === 'live' ? ' <span class="live-pill">Now</span>' : ''}</div>
           ${note || first.ends_at ? `<div class="plan-sub">${[note && safe(note), first.ends_at && `until ${fmtTime(first.end)}`].filter(Boolean).join(' · ')}</div>` : ''}
+          ${slot.filter(i => i.info || i.address).map(i => planInfo(i, slot.length > 1)).join('')}
         </div>`;
       section.appendChild(row);
     });
@@ -386,6 +390,16 @@ function renderAgenda(list = $('agenda-list'), scrollToToday = true) {
   });
 
   if (scrollToToday) list.querySelector('.plan-day.today')?.scrollIntoView({ block: 'start', behavior: 'instant' });
+}
+
+// What the visit is about + where it is, so everyone knows what's going on
+function planInfo(item, labelled) {
+  const maps = item.address && `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.address)}`;
+  return `<div class="plan-info">
+    ${item.info ? `<p>${labelled ? `<b>${safe(item.title)}:</b> ` : ''}${safe(item.info)}</p>` : ''}
+    ${item.tags?.length ? `<div class="plan-tags">${item.tags.map(t => `<span>${safe(t)}</span>`).join('')}</div>` : ''}
+    ${maps ? `<a class="plan-addr" href="${maps}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 10-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>${safe(item.address)}</a>` : ''}
+  </div>`;
 }
 
 function renderNowCard() {
@@ -457,6 +471,8 @@ const CATEGORIES = [
   { id: 'special', label: 'Special', sub: 'Spicy. Big points.',
     icon: '<path d="M12 22c4 0 7-2.7 7-7 0-4-3-6.5-4-10-2.5 1.5-4 4-4 6.5C9.5 10 8.5 9 8 7.5 6 9.5 5 12 5 15c0 4.3 3 7 7 7z"/>' },
 ];
+const RANDOM_CAT = { id: 'random', label: 'Random', sub: '',
+  icon: '<rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/>' };
 const catOf = t => CATEGORIES.some(c => c.id === t.category) ? t.category : 'tour';
 const catIcon = c => `<svg viewBox="0 0 24 24" aria-hidden="true">${c.icon}</svg>`;
 state.cat = 'all';
@@ -464,7 +480,7 @@ state.cat = 'all';
 function renderCatChips() {
   const el = $('cat-chips');
   el.innerHTML = '';
-  [{ id: 'all', label: 'All' }, ...CATEGORIES.filter(c => state.tasks.some(t => catOf(t) === c.id))].forEach(c => {
+  [{ id: 'all', label: 'All' }, ...CATEGORIES.filter(c => state.tasks.some(t => catOf(t) === c.id)), RANDOM_CAT].forEach(c => {
     const b = document.createElement('button');
     b.className = 'cat-chip' + (state.cat === c.id ? ' active' : '');
     b.innerHTML = `${c.icon ? catIcon(c) : ''}<span>${c.label}</span>`;
@@ -487,6 +503,17 @@ function renderTasks() {
     return;
   }
   renderCatChips();
+
+  if (state.cat === 'all' || state.cat === 'random') {
+    const card = document.createElement('li');
+    card.className = 'random-card';
+    card.innerHTML = `<span class="sec-icon">${catIcon(RANDOM_CAT)}</span>
+      <span class="sec-text"><b>Share a random moment</b><small>No points, as many as you like. Shows up in Feed → Random.</small></span>
+      <span class="task-cta"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>`;
+    card.addEventListener('click', () => openSheet(SNAP));
+    list.appendChild(card);
+  }
+  if (state.cat === 'random') return;
 
   let i = 0;
   CATEGORIES.filter(c => state.cat === 'all' || state.cat === c.id).forEach(cat => {
@@ -547,11 +574,17 @@ function updateRankLabel() {
 
 function openSheet(taskId) {
   if (state.uploading) return;
-  const task = taskById(taskId);
+  const snap = taskId === SNAP;
+  const task = snap ? null : taskById(taskId);
   state.active = taskId;
   state.file = null;
-  $('sheet-points').textContent = `+${task.points}`;
-  $('sheet-task').textContent = task.text;
+  $('sheet-points').hidden = snap;
+  $('sheet-points').textContent = snap ? '' : `+${task.points}`;
+  $('sheet-task').textContent = snap ? 'Random moment. No points, just vibes.' : task.text;
+  $('snap-caption').hidden = !snap;
+  $('snap-caption').value = '';
+  $('submit-btn').querySelector('span').textContent = snap ? 'Share it' : 'Check it off';
+  $('photo-drop').querySelector('.photo-drop-empty b').textContent = snap ? 'Add a photo' : 'Add your proof';
   $('photo-preview').removeAttribute('src');
   $('photo-drop').classList.remove('has-photo');
   $('photo-input').value = '';
@@ -641,23 +674,27 @@ const permanent = err => err?.code && err.code.startsWith('23') && err.code !== 
 
 async function submitCompletion() {
   const taskId = state.active;
-  const task = taskById(taskId);
+  const snap = taskId === SNAP;
+  const task = snap ? null : taskById(taskId);
   const file = state.file;
+  const stamp = Date.now();
   state.uploading = true;
   showLoading('Uploading...');
 
   try {
     const img = await compressImage(file);
     const item = {
-      key: `${state.player.id}:${taskId}`,
-      player_id: state.player.id, player_name: state.player.name, task_id: taskId,
+      key: snap ? `${state.player.id}:snap:${stamp}` : `${state.player.id}:${taskId}`,
+      kind: snap ? 'snap' : 'task',
+      caption: snap ? $('snap-caption').value.trim().slice(0, 80) : null,
+      player_id: state.player.id, player_name: state.player.name, task_id: snap ? null : taskId,
       // Raw bytes instead of Blob/File: Safari can refuse to store File objects in IndexedDB
       blob: await img.blob.arrayBuffer(), w: img.w, h: img.h,
       original: await file.arrayBuffer(), origType: file.type || 'image/jpeg', origExt: (file.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg',
-      stamp: Date.now(), stage: 'photo',
+      stamp, stage: 'photo',
     };
     await qPut(item);
-    state.pending.add(taskId);
+    if (!snap) state.pending.add(taskId);
 
     let synced = false;
     try { synced = await sendPhoto(item, 25000); } catch (e) { console.warn('queued', e); }
@@ -666,9 +703,10 @@ async function submitCompletion() {
     closeSheet();
     if (synced) {
       markSynced(item);
-      celebrate(task.points);
+      if (snap) { showToast('Shared ✓'); buzz(20); fireworks(500); }
+      else celebrate(task.points);
     } else {
-      renderTasks();
+      if (!snap) renderTasks();
       showToast('Saved. Uploads when you have signal.');
       buzz(20);
     }
@@ -685,18 +723,25 @@ async function submitCompletion() {
 // Feed photo + DB row. Deterministic path so a retry after a half-finished attempt is safe.
 async function sendPhoto(item, timeout = 30000) {
   if (!db || item.stage !== 'photo') return item.stage !== 'photo';
-  const path = `${item.player_id}/${item.task_id}-${item.stamp}.jpg`;
+  const isSnap = item.kind === 'snap';
+  const path = `${item.player_id}/${isSnap ? 'snap' : item.task_id}-${item.stamp}.jpg`;
   const { error: upErr } = await withTimeout(db.storage.from(BUCKET).upload(path, new Blob([item.blob], { type: 'image/jpeg' }), { contentType: 'image/jpeg' }), timeout);
   if (upErr && !alreadyThere(upErr)) throw upErr;
   const url = db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
   // Orga preview checks off through a password-guarded function, everyone else inserts directly
-  const { error } = await withTimeout(state.orgaPw && !isLive()
-    ? db.rpc('orga_complete', { pw: state.orgaPw, p_player_id: item.player_id, p_player_name: item.player_name,
-        p_task_id: item.task_id, p_photo_url: url, p_w: item.w, p_h: item.h })
-    : db.from('completions').insert({
-        player_id: item.player_id, player_name: item.player_name, task_id: item.task_id,
-        photo_url: url, photo_w: item.w, photo_h: item.h,
-      }), 15000);
+  // Random snaps go to their own table so they can never mix into the challenge feed
+  const orga = state.orgaPw && !isLive();
+  const base = { player_id: item.player_id, player_name: item.player_name, photo_url: url, photo_w: item.w, photo_h: item.h };
+  const write = isSnap
+    ? (orga
+      ? db.rpc('orga_snap', { pw: state.orgaPw, p_player_id: item.player_id, p_player_name: item.player_name,
+          p_caption: item.caption ?? '', p_photo_url: url, p_w: item.w, p_h: item.h })
+      : db.from('snaps').insert({ ...base, caption: item.caption || null }))
+    : (orga
+      ? db.rpc('orga_complete', { pw: state.orgaPw, p_player_id: item.player_id, p_player_name: item.player_name,
+          p_task_id: item.task_id, p_photo_url: url, p_w: item.w, p_h: item.h })
+      : db.from('completions').insert({ ...base, task_id: item.task_id }));
+  const { error } = await withTimeout(write, 15000);
   if (error && error.code !== '23505') throw error;
   item.stage = 'original';
   item.url = url;
@@ -708,7 +753,7 @@ async function sendPhoto(item, timeout = 30000) {
 // Full-resolution copy for printing, private bucket (insert-only, not publicly readable)
 async function sendOriginal(item) {
   if (item.original) {
-    const path = `${item.player_id}/${item.task_id}-${item.stamp}.${item.origExt}`;
+    const path = `${item.player_id}/${item.kind === 'snap' ? 'snap' : item.task_id}-${item.stamp}.${item.origExt}`;
     const { error } = await withTimeout(db.storage.from(ORIGINALS_BUCKET).upload(path, new Blob([item.original], { type: item.origType }), { contentType: item.origType }), 180000);
     if (error && !alreadyThere(error)) throw error;
   }
@@ -716,6 +761,7 @@ async function sendOriginal(item) {
 }
 
 function markSynced(item) {
+  if (item.kind === 'snap') { snapFeed.catchUp(); return; }
   if (item.player_id !== state.player?.id) return;
   state.pending.delete(item.task_id);
   state.done[item.task_id] = { photo_url: item.url };
@@ -735,7 +781,8 @@ async function flushQueue() {
         if (item.stage === 'photo') {
           await sendPhoto(item);
           markSynced(item);
-          const t = taskById(item.task_id);
+          if (item.kind === 'snap') showToast('Random photo shared ✓');
+          const t = item.kind === 'snap' ? null : taskById(item.task_id);
           if (t) { showToast(`Synced ✓ +${t.points} point${t.points > 1 ? 's' : ''}`); buzz([30, 40, 60]); }
         }
         await sendOriginal(item);
@@ -750,7 +797,7 @@ async function flushQueue() {
 }
 
 async function restorePending() {
-  const mine = (await qAll()).filter(i => i.player_id === state.player.id && i.stage === 'photo');
+  const mine = (await qAll()).filter(i => i.player_id === state.player.id && i.stage === 'photo' && i.kind !== 'snap');
   mine.forEach(i => state.pending.add(i.task_id));
   if (mine.length) renderTasks();
   flushQueue();
@@ -888,7 +935,10 @@ function renderLeaderboard(list, rows) {
 // FEED — endless scroll, full-width photos
 // ═══════════════════════════════════════════════
 
-function createFeed(list, { root = list, pill, countEl } = {}) {
+const FEED_COLUMNS = 'id, player_name, task_id, photo_url, photo_w, photo_h, created_at';
+const SNAP_COLUMNS = 'id, player_name, caption, photo_url, photo_w, photo_h, created_at';
+
+function createFeed(list, { root = list, pill, countEl, table = 'completions', columns = FEED_COLUMNS, card = feedCard } = {}) {
   const feed = { started: false, cursor: null, newest: null, loading: false, finished: false, ids: new Set(), pending: [] };
 
   const sentinel = document.createElement('div');
@@ -901,8 +951,8 @@ function createFeed(list, { root = list, pill, countEl } = {}) {
   async function loadPage() {
     if (!db || feed.loading || feed.finished) return;
     feed.loading = true;
-    let q = db.from('completions')
-      .select('id, player_name, task_id, photo_url, photo_w, photo_h, created_at')
+    let q = db.from(table)
+      .select(columns)
       .order('created_at', { ascending: false })
       .limit(FEED_PAGE);
     if (feed.cursor) q = q.lt('created_at', feed.cursor);
@@ -914,7 +964,7 @@ function createFeed(list, { root = list, pill, countEl } = {}) {
     data.forEach(item => {
       if (feed.ids.has(item.id)) return;
       feed.ids.add(item.id);
-      list.insertBefore(feedCard(item), sentinel);
+      list.insertBefore(card(item), sentinel);
     });
     if (data.length) feed.cursor = data[data.length - 1].created_at;
     if (data.length && (!feed.newest || data[0].created_at > feed.newest)) feed.newest = data[0].created_at;
@@ -947,10 +997,10 @@ function createFeed(list, { root = list, pill, countEl } = {}) {
     if (feed.ids.has(item.id)) return;
     feed.ids.add(item.id);
     list.querySelector('.feed-empty')?.remove();
-    const card = feedCard(item);
-    card.classList.add('incoming');
+    const el = card(item);
+    el.classList.add('incoming');
     const first = list.querySelector('.feed-card');
-    list.insertBefore(card, first || sentinel);
+    list.insertBefore(el, first || sentinel);
   }
 
   function flushPending() {
@@ -990,8 +1040,8 @@ function createFeed(list, { root = list, pill, countEl } = {}) {
     // Realtime drops events under bursts, so this pulls everything newer than what we have
     async catchUp() {
       if (!db || !feed.started || feed.loading) return;
-      let q = db.from('completions')
-        .select('id, player_name, task_id, photo_url, photo_w, photo_h, created_at')
+      let q = db.from(table)
+        .select(columns)
         .order('created_at', { ascending: true })
         .limit(50);
       if (feed.newest) q = q.gt('created_at', feed.newest);
@@ -1027,7 +1077,42 @@ function feedCard(item) {
   return card;
 }
 
+function snapCard(item) {
+  const card = document.createElement('article');
+  card.className = 'feed-card snap-card';
+  card.dataset.id = item.id;
+  const ratio = item.photo_w && item.photo_h ? `${item.photo_w}/${item.photo_h}` : '4/5';
+  card.innerHTML = `
+    <div class="feed-photo" style="aspect-ratio:${ratio}">
+      <img src="${safe(item.photo_url)}" alt="" loading="lazy" decoding="async">
+    </div>
+    <div class="feed-meta">
+      <div class="feed-who"><b>${safe(item.player_name)}</b><time>${timeAgo(item.created_at)}</time></div>
+      ${item.caption ? `<div class="feed-task"><span>${safe(item.caption)}</span></div>` : ''}
+    </div>`;
+  const img = card.querySelector('img');
+  const ready = () => img.classList.add('loaded');
+  img.complete ? ready() : img.addEventListener('load', ready, { once: true });
+  card.querySelector('.feed-photo').addEventListener('click', () => openLightbox(item.photo_url));
+  return card;
+}
+
 const phoneFeed = createFeed($('feed-list'), { root: $('view-feed'), pill: $('new-pill'), countEl: $('new-count') });
+const snapFeed = createFeed($('snap-list'), { root: $('view-feed'), pill: $('snap-pill'), countEl: $('snap-count'),
+  table: 'snaps', columns: SNAP_COLUMNS, card: snapCard });
+let feedMode = 'challenges';
+
+function setFeedMode(mode) {
+  feedMode = mode;
+  document.querySelectorAll('.feed-switch button').forEach(b => b.classList.toggle('active', b.dataset.f === mode));
+  $('feed-list').hidden = mode !== 'challenges';
+  $('new-pill').hidden = mode !== 'challenges';
+  $('snap-list').hidden = mode !== 'random';
+  $('snap-pill').hidden = mode !== 'random';
+  (mode === 'random' ? snapFeed : phoneFeed).start();
+  $('view-feed').scrollTo({ top: 0 });
+}
+document.querySelectorAll('.feed-switch button').forEach(b => b.addEventListener('click', () => { setFeedMode(b.dataset.f); buzz(8); }));
 let displayFeed = null;
 
 // ═══════════════════════════════════════════════
@@ -1043,6 +1128,12 @@ function subscribe() {
       if (!shown || !$('view-feed').classList.contains('active')) $('feed-dot').classList.add('on');
       scheduleLeaderboardRefresh();
     })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'snaps' }, ({ new: item }) => {
+      if (displayFeed) return; // beamer shows challenges only
+      const shown = snapFeed.onInsert(item);
+      if (!shown || !$('view-feed').classList.contains('active') || feedMode !== 'random') $('feed-dot').classList.add('on');
+    })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'snaps' }, ({ old }) => snapFeed.onDelete(old.id))
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'completions' }, ({ old }) => {
       (displayFeed ?? phoneFeed).onDelete(old.id);
       scheduleLeaderboardRefresh();
@@ -1136,6 +1227,7 @@ function safe(str) {
 
 function timeAgo(iso) {
   const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (Number.isNaN(s)) return '';
   if (s < 60)    return 'just now';
   if (s < 3600)  return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
@@ -1185,6 +1277,40 @@ function renderMarquees() {
   document.querySelectorAll('.marquee-track').forEach(t => { t.innerHTML = `<span>${items}</span><span>${items}</span>`; });
 }
 renderMarquees();
+
+// ═══════════════════════════════════════════════
+// INSTALL AS APP (home screen, standalone, no browser bars)
+// ═══════════════════════════════════════════════
+
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let installPrompt = null;
+
+function showInstallHint() {
+  if (isStandalone() || lsGet('bt-install-dismissed', false) || document.body.classList.contains('display-mode')) return;
+  if (!isIOS && !installPrompt) return; // Android/Chrome: only once the browser offers installing
+  $('install-btn').hidden = !installPrompt;
+  if (installPrompt) $('install-text').innerHTML = 'Get the app on your home screen';
+  $('install-hint').hidden = false;
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  showInstallHint();
+});
+$('install-btn').addEventListener('click', async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  $('install-hint').hidden = true;
+});
+$('install-close').addEventListener('click', () => {
+  $('install-hint').hidden = true;
+  lsSet('bt-install-dismissed', true);
+});
+setTimeout(showInstallHint, 2500);
 
 // ═══════════════════════════════════════════════
 // GO

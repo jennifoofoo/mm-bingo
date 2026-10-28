@@ -278,3 +278,57 @@ begin
   values (p_player_id, p_player_name, p_task_id, p_photo_url, p_w, p_h);
 end $$;
 grant execute on function orga_complete(text, uuid, text, text, text, int, int) to anon, authenticated;
+
+-- Random snaps: free photos, no points, kept strictly apart from challenge completions
+create table if not exists snaps (
+  id          uuid        primary key default gen_random_uuid(),
+  player_id   uuid        not null,
+  player_name text        not null check (char_length(player_name) between 1 and 40),
+  caption     text        check (char_length(caption) <= 80),
+  photo_url   text        not null check (photo_url like 'https://%/storage/v1/object/public/bingo-photos/' || player_id::text || '/%'),
+  photo_w     int,
+  photo_h     int,
+  created_at  timestamptz not null default now()
+);
+create index if not exists snaps_created_at_idx on snaps (created_at desc);
+
+alter table snaps enable row level security;
+drop policy if exists "read snaps" on snaps;
+drop policy if exists "insert snap after kickoff" on snaps;
+create policy "read snaps" on snaps for select using (true);
+create policy "insert snap after kickoff" on snaps for insert
+  with check (now() >= (select kickoff_at from config where id = 1));
+
+alter publication supabase_realtime add table snaps;
+
+create or replace function orga_snap(pw text, p_player_id uuid, p_player_name text, p_caption text,
+                                     p_photo_url text, p_w int, p_h int) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from admin_secret s where s.password = pw) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  insert into snaps (player_id, player_name, caption, photo_url, photo_w, photo_h)
+  values (p_player_id, p_player_name, nullif(p_caption, ''), p_photo_url, p_w, p_h);
+end $$;
+grant execute on function orga_snap(text, uuid, text, text, text, int, int) to anon, authenticated;
+
+-- Agenda: what each visit is about + Berlin address (shown under the agenda row)
+alter table agenda add column if not exists info    text;
+alter table agenda add column if not exists tags    text[];
+alter table agenda add column if not exists address text;
+
+update agenda set info = 'European early-stage VC, backs startups from pre-seed to Series A.',
+  tags = array['VC', 'early stage', 'Europe'], address = 'Schwedter Str. 263, 10119 Berlin' where title = 'Speedinvest visit';
+update agenda set info = 'Berlin startup whose AI voice agents make and take phone calls for companies.',
+  tags = array['AI voice agents', 'founded 2024'], address = 'Knaackstraße 78, 10435 Berlin' where title = 'Telli visit';
+update agenda set info = 'Software that helps solar and heat pump installers plan, quote and sell faster.',
+  tags = array['GreenTech', 'SaaS', 'solar & heat pumps'], address = 'Rosenstraße 16, 10178 Berlin' where title = 'Reonic visit + dinner & drinks';
+update agenda set info = 'Learning app where students share study notes and get AI help for school.',
+  tags = array['EdTech', 'learning app', 'AI'], address = 'Julie-Wolfthorn-Straße 1, 10115 Berlin' where title = 'Knowunity visit';
+update agenda set info = 'Berlin VC investing in startups that fight climate change.',
+  tags = array['climate VC', 'Planet A Ventures'], address = 'Neue Schönhauser Str. 16, 10178 Berlin' where title = 'Lunch: Planet A';
+update agenda set info = 'ICEYE: radar satellites that see Earth day and night, through clouds. LiveEO: satellite + AI monitoring of railways, pipelines and power lines. Reflex Aerospace: builds small satellites faster and cheaper.',
+  tags = array['SAR satellites', 'defense', 'Earth observation', 'NewSpace'] where title = 'ICEYE + LiveEO + Reflex Aerospace';
+update agenda set info = 'Lucid Capital: Berlin VC that backs AI founders at the very start (€36m inception fund). Zauber: AI agents for global logistics.',
+  tags = array['VC', 'AI', 'inception fund'], address = 'Neue Schönhauser Straße 2, 10178 Berlin' where title = 'Zauber x Lucid Capital visit + dinner & drinks';

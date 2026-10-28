@@ -6,11 +6,16 @@
   <meta name="theme-color" content="#07080F">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MM Tour">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
   <title>M&amp;M Startup Tour Berlin 2026</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=202610281057">
+  <link rel="stylesheet" href="style.css?v=202610281452">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
@@ -66,6 +71,7 @@
       </section>
 
       <div class="orga">
+        <p class="bug-hint">Bugs? Something doesn't work? Ask Jennifer Nikolovic (G45)</p>
         <button id="orga-link" class="orga-link">Orga</button>
         <form id="orga-form" class="orga-form" hidden>
           <input id="orga-pw" type="password" placeholder="Password" autocomplete="current-password">
@@ -102,6 +108,7 @@
         <div id="cat-chips" class="cat-chips"></div>
         <ul id="task-list" class="task-list"></ul>
         <button id="reset-btn" class="reset-btn">Not you? Switch player</button>
+        <p class="bug-hint">Bugs? Something doesn't work? Ask Jennifer Nikolovic (G45)</p>
       </div>
 
       <div id="view-agenda" class="view">
@@ -110,8 +117,14 @@
       </div>
 
       <div id="view-feed" class="view">
+        <div class="feed-switch">
+          <button data-f="challenges" class="active">Challenges</button>
+          <button data-f="random">Random</button>
+        </div>
         <button id="new-pill" class="new-pill">↑ <span id="new-count">0</span> new</button>
+        <button id="snap-pill" class="new-pill" hidden>↑ <span id="snap-count">0</span> new</button>
         <div id="feed-list" class="feed-list"></div>
+        <div id="snap-list" class="feed-list" hidden></div>
       </div>
 
       <div id="view-ranking" class="view">
@@ -180,6 +193,7 @@
         </span>
       </button>
       <input type="file" id="photo-input" accept="image/*" hidden>
+      <input type="text" id="snap-caption" class="caption-input" maxlength="80" placeholder="Say something (optional)" hidden>
       <button id="submit-btn" class="go-btn full" disabled><span>Check it off</span></button>
       <button id="sheet-cancel" class="ghost-btn full">Cancel</button>
     </div>
@@ -197,9 +211,15 @@
 
   <div id="loading" class="loading"><div class="spinner"></div><div id="loading-text">Uploading...</div></div>
   <div id="toast" class="toast"></div>
+  <div id="install-hint" class="install-hint" hidden>
+    <img src="icons/icon-180.png" alt="">
+    <span id="install-text">Get the app: tap <b>Share</b> <svg viewBox="0 0 24 24"><path d="M12 15V3M8 7l4-4 4 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg> then <b>Add to Home Screen</b></span>
+    <button id="install-btn" class="install-btn" hidden>Install</button>
+    <button id="install-close" class="install-close" aria-label="Close">×</button>
+  </div>
   <div id="lightbox" class="lightbox"><img id="lightbox-img" alt=""></div>
 
-  <script src="supabase-config.js?v=202610281057"></script>
-  <script src="app.js?v=202610281057"></script>
+  <script src="supabase-config.js?v=202610281452"></script>
+  <script src="app.js?v=202610281452"></script>
 </body>
 </html>
