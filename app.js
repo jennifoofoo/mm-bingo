@@ -281,7 +281,7 @@ $('wb-new').addEventListener('click', () => {
   $('welcome-back').hidden = true;
   returning = null;
   nameInput.focus();
-  showToast('Pick a slightly different name, e.g. add your last initial');
+  showToast('Pick a different name, e.g. your full name or a nickname');
 });
 nameInput.addEventListener('input', () => { returning = null; $('welcome-back').hidden = true; });
 
