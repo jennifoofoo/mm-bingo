@@ -40,7 +40,11 @@ insert into tasks (id, text, points, sort) values
   ('coffee_munich',   'Get someone at a visit to promise you a coffee in Munich',                          2, 17),
   ('team_logo',       'Team (3+): recreate the logo of a startup you visit with your bodies, in front of their office. Everyone in the photo checks it off', 3, 18),
   ('team_founder',    'Team (3+): get a founder from a visit into your crew selfie. Everyone in the photo checks it off', 3, 19),
-  ('team_costume',    'Team (3+): costume group photo with at least one stranger at the party. Everyone in the photo checks it off', 2, 20);
+  ('team_costume',    'Team (3+): costume group photo with at least one stranger at the party. Everyone in the photo checks it off', 2, 20),
+  ('dj_selfie',       'Club: get a selfie with the DJ or someone behind the decks',                       4, 21),
+  ('fake_founder',    'Club: convince a stranger you''re a famous Munich founder until they want a selfie with you', 3, 22),
+  ('last_standing',   'Club: still be on the dance floor when the lights go on (photo with lights on)',  3, 23),
+  ('queue_conga',     'Club queue: start a conga line with at least 5 strangers in the Lokschuppen queue', 3, 24);
 
 -- ─── Agenda (editable live in the Table Editor; times in Berlin time) ───
 create table agenda (
