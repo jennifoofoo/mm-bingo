@@ -4,6 +4,23 @@
 -- ─── Archive the old M&M party data (renamed, nothing deleted) ───
 alter index if exists completions_pkey rename to completions_mm_party_pkey;
 alter table if exists completions rename to completions_mm_party;
+-- Archive is read-only from the outside now
+drop policy if exists "anyone can insert" on completions_mm_party;
+
+-- Old party bucket ("bingo photos"): drop any write policies, photos stay public
+do $$
+declare p record;
+begin
+  for p in
+    select policyname from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and coalesce(qual, '') || coalesce(with_check, '') like '%bingo photos%'
+  loop
+    execute format('drop policy %I on storage.objects', p.policyname);
+  end loop;
+exception when others then
+  raise notice 'Could not clean old bucket policies: %', sqlerrm;
+end $$;
 
 -- ─── Config: kickoff locks tasks + check-offs until then (change here to move it) ───
 create table config (
@@ -81,13 +98,14 @@ insert into agenda (starts_at, ends_at, title, note) values
   ('2026-10-31 23:00 Europe/Berlin', null,                             'Lokschuppen: Disco', null),
   ('2026-11-01 13:00 Europe/Berlin', '2026-11-01 14:30 Europe/Berlin', 'Train Berlin → Munich', 'Individual');
 
- one row per player and task, photo required ───
+-- ─── Completions: one row per player and task, photo required ───
 create table completions (
   id          uuid        primary key default gen_random_uuid(),
   player_id   uuid        not null,
   player_name text        not null check (char_length(player_name) between 1 and 40),
   task_id     text        not null references tasks(id) on delete cascade,
-  photo_url   text        not null check (photo_url like 'https://%'),
+  -- Photo must live in our bucket, in this player's own folder
+  photo_url   text        not null check (photo_url like 'https://%/storage/v1/object/public/bingo-photos/' || player_id::text || '/%'),
   photo_w     int,
   photo_h     int,
   created_at  timestamptz not null default now(),
@@ -131,10 +149,13 @@ alter publication supabase_realtime add table completions;
 
 -- ─── Photo storage ───
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('bingo-photos', 'bingo-photos', true, 8388608, array['image/jpeg', 'image/png', 'image/webp'])
+values ('bingo-photos', 'bingo-photos', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
 
 create policy "upload tour photos" on storage.objects
-  for insert to anon, authenticated with check (bucket_id = 'bingo-photos');
+  for insert to anon, authenticated with check (
+    bucket_id = 'bingo-photos'
+    and (storage.foldername(name))[1] ~ '^[0-9a-f-]{36}$'
+  );
 create policy "read tour photos" on storage.objects
   for select to anon, authenticated using (bucket_id = 'bingo-photos');

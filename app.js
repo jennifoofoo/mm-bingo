@@ -534,14 +534,14 @@ async function uploadWithRetry(file, attempts = 3) {
   return { url: db.storage.from(BUCKET).getPublicUrl(fileName).data.publicUrl, w: img.w, h: img.h };
 }
 
-// Compress to max 1400px JPEG and report dimensions so the feed can reserve space (no layout jumps)
+// Compress to max 1080px JPEG and report dimensions so the feed can reserve space (no layout jumps)
 function compressImage(file) {
   return new Promise(resolve => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const MAX = 1400;
+      const MAX = 1080; // keeps photos ~150-250 KB so 30 people scrolling stay well inside free-tier egress
       let { naturalWidth: width, naturalHeight: height } = img;
       if (width > MAX || height > MAX) {
         if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
@@ -550,7 +550,7 @@ function compressImage(file) {
       const canvas = document.createElement('canvas');
       canvas.width = width; canvas.height = height;
       canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-      canvas.toBlob(blob => resolve({ blob: blob || file, w: width, h: height }), 'image/jpeg', 0.82);
+      canvas.toBlob(blob => resolve({ blob: blob || file, w: width, h: height }), 'image/jpeg', 0.78);
     };
     img.onerror = () => { URL.revokeObjectURL(url); resolve({ blob: file, w: null, h: null }); };
     img.src = url;
