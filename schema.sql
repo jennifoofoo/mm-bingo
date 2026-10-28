@@ -436,13 +436,13 @@ alter table snaps add constraint photo_size check (photo_w between 1 and 10000 a
 -- A retried upload must never create a second random post
 create unique index if not exists snaps_photo_url_key on snaps (photo_url);
 
--- Max 20 random photos per person per Berlin day (against feed spam)
+-- Max 30 random photos per person per Berlin day (against feed spam)
 create or replace function check_snap_limit() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   if (select count(*) from snaps
       where player_id = new.player_id
-        and (created_at at time zone 'Europe/Berlin')::date = (now() at time zone 'Europe/Berlin')::date) >= 20 then
+        and (created_at at time zone 'Europe/Berlin')::date = (now() at time zone 'Europe/Berlin')::date) >= 30 then
     raise exception 'daily random photo limit reached' using errcode = '23514';
   end if;
   return new;

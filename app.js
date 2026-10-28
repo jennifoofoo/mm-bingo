@@ -599,8 +599,8 @@ function updateRankLabel() {
 // COMPLETE A TASK (bottom sheet)
 // ═══════════════════════════════════════════════
 
-// Against feed spam: 20 random photos per person per Berlin day (the DB enforces it too)
-const SNAP_DAILY_LIMIT = 20;
+// Against feed spam: 30 random photos per person per Berlin day (the DB enforces it too)
+const SNAP_DAILY_LIMIT = 30;
 async function openSnapSheet() {
   if (db && state.player) {
     const { count } = await withTimeout(db.from('snaps').select('id', { count: 'exact', head: true })
