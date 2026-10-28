@@ -18,7 +18,40 @@ const FALLBACK_TASKS = [
   { id: 'makeup',          points: 2, text: 'Help someone who isn\'t your friend yet with their Halloween makeup' },
   { id: 'reonic_fact',     points: 1, text: 'Research a fact about Reonic and tell someone who didn\'t know it' },
   { id: 'drink',           points: 1, text: 'Buy a (non-alcoholic) drink for someone who isn\'t your friend yet' },
+  { id: 'series_a',        points: 3, text: 'Get the number or LinkedIn of a founder who has raised a Series A' },
+  { id: 'coffee_munich',   points: 2, text: 'Get someone at a visit to promise you a coffee in Munich' },
+  { id: 'team_logo',       points: 3, text: 'Team (3+): recreate the logo of a startup you visit with your bodies, in front of their office. Everyone in the photo checks it off' },
+  { id: 'team_founder',    points: 3, text: 'Team (3+): get a founder from a visit into your crew selfie. Everyone in the photo checks it off' },
+  { id: 'team_costume',    points: 2, text: 'Team (3+): costume group photo with at least one stranger at the party. Everyone in the photo checks it off' },
 ];
+
+// Agenda fallback; the source of truth is the `agenda` table (Berlin time, CET = +01:00)
+const FALLBACK_AGENDA = [
+  ['2026-10-29T09:19', '2026-10-29T13:57', 'Train Munich → Berlin'],
+  ['2026-10-29T14:00', '2026-10-29T15:00', 'HBF → Friedrichshain'],
+  ['2026-10-29T15:00', null,               'Housing check-in'],
+  ['2026-10-29T16:00', '2026-10-29T17:15', 'Speedinvest visit'],
+  ['2026-10-29T17:30', '2026-10-29T19:00', 'Telli visit'],
+  ['2026-10-29T19:30', '2026-10-29T22:00', 'Reonic visit + dinner & drinks'],
+  ['2026-10-29T22:00', '2026-10-29T23:30', 'Bar'],
+  ['2026-10-30T10:00', '2026-10-30T12:00', 'Knowunity visit'],
+  ['2026-10-30T12:30', '2026-10-30T14:00', 'Lunch: Planet A'],
+  ['2026-10-30T12:30', '2026-10-30T14:00', 'Alternative lunch'],
+  ['2026-10-30T15:00', '2026-10-30T17:15', 'ICEYE + LiveEO + Reflex Aerospace'],
+  ['2026-10-30T18:15', '2026-10-30T21:30', 'Zauber x Lucid Capital visit + dinner & drinks'],
+  ['2026-10-30T21:30', '2026-10-30T23:30', 'Bar'],
+  ['2026-10-31T09:30', '2026-10-31T10:30', 'Sightseeing coffee run'],
+  ['2026-10-31T11:00', '2026-10-31T12:00', 'Breakfast together'],
+  ['2026-10-31T12:30', '2026-10-31T16:00', 'Architecture tour with Desi'],
+  ['2026-10-31T12:30', '2026-10-31T16:00', 'Coworking'],
+  ['2026-10-31T12:30', '2026-10-31T16:00', 'Hackathon GTM'],
+  ['2026-10-31T12:30', '2026-10-31T16:00', 'Underground tour'],
+  ['2026-10-31T16:00', '2026-10-31T18:00', 'Team building'],
+  ['2026-10-31T18:00', '2026-10-31T19:30', 'Costumes on + dinner'],
+  ['2026-10-31T19:30', '2026-10-31T21:00', 'Pre-drinks + makeup', 'Costume pitch'],
+  ['2026-10-31T23:00', null,               'Lokschuppen: Disco'],
+  ['2026-11-01T13:00', '2026-11-01T14:30', 'Train Berlin → Munich', 'Individual'],
+].map(([s, e, title, note]) => ({ starts_at: s + '+01:00', ends_at: e && e + '+01:00', title, note }));
 
 const BUCKET       = 'bingo-photos';
 const FEED_PAGE    = 10;
@@ -38,6 +71,8 @@ let lbPollTimer = null;
 
 const state = {
   tasks: FALLBACK_TASKS,
+  agenda: FALLBACK_AGENDA,
+  agendaDay: null,
   player: null,        // { id, name }
   done: {},            // task_id -> { photo_url }
   active: null,        // task_id open in the sheet
@@ -69,7 +104,7 @@ async function init() {
     db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 
-  await loadTasks();
+  await Promise.all([loadTasks(), loadAgenda()]);
 
   if (new URLSearchParams(location.search).get('display') === 'true') {
     document.body.classList.add('display-mode');
@@ -101,6 +136,12 @@ async function loadTasks() {
   if (data?.length) state.tasks = data;
   $('splash-task-count').textContent = state.tasks.length;
   $('splash-max-points').textContent = maxPoints();
+}
+
+async function loadAgenda() {
+  if (!db) return;
+  const { data } = await db.from('agenda').select('starts_at, ends_at, title, note').order('starts_at').order('id');
+  if (data?.length) state.agenda = data;
 }
 
 function showScreen(name) {
@@ -149,6 +190,9 @@ function enterApp() {
   $('score-max').textContent = maxPoints();
   renderTasks();
   updateScore(false);
+  renderAgenda();
+  renderNowCard();
+  setInterval(() => { renderNowCard(); if ($('view-agenda').classList.contains('active')) renderAgenda(); }, 60000);
 
   if (!db) return;
   subscribe();
@@ -170,6 +214,97 @@ function switchView(view) {
     phoneFeed.start();
   }
   if (view === 'ranking') refreshLeaderboard();
+  if (view === 'agenda') renderAgenda();
+}
+
+// ═══════════════════════════════════════════════
+// AGENDA
+// ═══════════════════════════════════════════════
+
+const TZ = 'Europe/Berlin';
+const fmtTime = d => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
+const dayKey  = d => d.toLocaleDateString('en-CA', { timeZone: TZ }); // YYYY-MM-DD
+
+function agendaItems() {
+  return state.agenda.map(a => {
+    const start = new Date(a.starts_at);
+    // Open-ended entries count as "now" for 90 min
+    const end = a.ends_at ? new Date(a.ends_at) : new Date(start.getTime() + 90 * 60000);
+    return { ...a, start, end, day: dayKey(start) };
+  });
+}
+
+function renderAgenda() {
+  const items = agendaItems();
+  const days = [...new Set(items.map(i => i.day))];
+  const today = dayKey(new Date());
+  if (!state.agendaDay || !days.includes(state.agendaDay)) {
+    state.agendaDay = days.includes(today) ? today : (days.find(d => d > today) ?? days[0]);
+  }
+
+  const chips = $('day-chips');
+  chips.innerHTML = '';
+  days.forEach(day => {
+    const d = new Date(day + 'T12:00:00');
+    const b = document.createElement('button');
+    b.className = 'day-chip' + (day === state.agendaDay ? ' active' : '') + (day === today ? ' today' : '');
+    b.innerHTML = `<small>${d.toLocaleDateString('en-GB', { weekday: 'short' })}</small><b>${d.getDate()}</b>`;
+    b.addEventListener('click', () => { state.agendaDay = day; renderAgenda(); buzz(8); });
+    chips.appendChild(b);
+  });
+
+  const now = Date.now();
+  const list = $('agenda-list');
+  list.innerHTML = '';
+  // Entries with the same start time are parallel options → render as one "pick one" group
+  const groups = [];
+  items.filter(i => i.day === state.agendaDay).forEach(i => {
+    const last = groups[groups.length - 1];
+    if (last && last[0].starts_at === i.starts_at) last.push(i); else groups.push([i]);
+  });
+
+  groups.forEach((group, gi) => {
+    const first = group[0];
+    const status = now >= first.end.getTime() ? 'past' : now >= first.start.getTime() ? 'live' : 'upcoming';
+    const li = document.createElement('li');
+    li.className = `agenda-item ${status}`;
+    li.style.setProperty('--i', gi);
+    const time = `${fmtTime(first.start)}${first.ends_at ? `<span>${fmtTime(first.end)}</span>` : ''}`;
+    const body = group.length === 1
+      ? `<div class="agenda-title">${safe(first.title)}</div>${first.note ? `<div class="agenda-note">${safe(first.note)}</div>` : ''}`
+      : `<div class="agenda-pick">Pick one</div><div class="agenda-options">${group.map(g => `<div class="agenda-option">${safe(g.title)}</div>`).join('')}</div>`;
+    li.innerHTML = `<div class="agenda-time">${time}</div><div class="agenda-body">${status === 'live' ? '<span class="live-pill">Now</span>' : ''}${body}</div>`;
+    list.appendChild(li);
+  });
+
+  list.querySelector('.live')?.scrollIntoView({ block: 'center', behavior: 'instant' });
+}
+
+function renderNowCard() {
+  const card = $('now-card');
+  const now = Date.now();
+  const items = agendaItems();
+  const live = items.filter(i => now >= i.start && now < i.end);
+  const next = items.find(i => i.start > now);
+  if (!live.length && !next) { card.hidden = true; return; }
+
+  const titles = list => list.map(i => safe(i.title)).join(' <i>or</i> ');
+  const nextGroup = next ? items.filter(i => i.starts_at === next.starts_at) : [];
+  const lead = live.length
+    ? `<span class="live-pill">Now</span><b>${titles(live)}</b><small>until ${fmtTime(live[0].end)}</small>`
+    : `<span class="next-pill">Next</span><b>${titles(nextGroup)}</b><small>${relDay(next.start)} ${fmtTime(next.start)}</small>`;
+  const after = live.length && next ? `<div class="now-next">Next: ${titles(nextGroup)} · ${relDay(next.start)} ${fmtTime(next.start)}</div>` : '';
+  card.innerHTML = `<div class="now-main">${lead}</div>${after}`;
+  card.hidden = false;
+}
+
+$('now-card').addEventListener('click', () => switchView('agenda'));
+
+function relDay(d) {
+  const diff = Math.round((new Date(dayKey(d)) - new Date(dayKey(new Date()))) / 86400000);
+  if (diff === 0) return 'today';
+  if (diff === 1) return 'tomorrow';
+  return d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: TZ });
 }
 
 $('reset-btn').addEventListener('click', () => {
