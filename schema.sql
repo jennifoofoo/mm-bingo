@@ -212,3 +212,8 @@ language sql stable security definer set search_path = public as $$
   where exists (select 1 from admin_secret s where s.password = pw)
   order by t.sort;
 $$;
+
+-- Special: speaker shoutout
+insert into tasks (id, text, points, sort, category)
+values ('shoutout', 'Get a speaker to give you a shoutout during a visit', 5, 25, 'special')
+on conflict (id) do update set text = excluded.text, points = excluded.points, category = excluded.category;
