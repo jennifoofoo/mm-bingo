@@ -217,3 +217,10 @@ $$;
 insert into tasks (id, text, points, sort, category)
 values ('shoutout', 'Get a speaker to give you a shoutout during a visit', 5, 25, 'special')
 on conflict (id) do update set text = excluded.text, points = excluded.points, category = excluded.category;
+
+-- Spicier specials
+update tasks set points = 5 where id = 'fake_founder';
+insert into tasks (id, text, points, sort, category) values
+  ('iceye_defense', 'At ICEYE, ask the defense question nobody else dares to ask, and get a real answer', 5, 26, 'special'),
+  ('real_offer',    'Leave Berlin with a real offer: job, internship or investor intro from someone you met on the tour (screenshot counts)', 6, 27, 'special')
+on conflict (id) do update set text = excluded.text, points = excluded.points, category = excluded.category;
