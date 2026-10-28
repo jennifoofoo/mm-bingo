@@ -11,8 +11,8 @@ const FALLBACK_AGENDA = [
   ['2026-10-29T19:30', '2026-10-29T22:00', 'Reonic visit + dinner & drinks'],
   ['2026-10-29T22:00', '2026-10-29T23:30', 'Bar'],
   ['2026-10-30T10:00', '2026-10-30T12:00', 'Knowunity visit'],
-  ['2026-10-30T12:30', '2026-10-30T14:00', 'Lunch: Planet A'],
-  ['2026-10-30T12:30', '2026-10-30T14:00', 'Alternative lunch'],
+  ['2026-10-30T12:30', '2026-10-30T14:00', 'Option A: Lunch at Planet A'],
+  ['2026-10-30T12:30', '2026-10-30T14:00', 'Option B: Merantix AI (VC)'],
   ['2026-10-30T15:00', '2026-10-30T17:15', 'ICEYE + LiveEO + Reflex Aerospace'],
   ['2026-10-30T18:15', '2026-10-30T21:30', 'Zauber x Lucid Capital visit + dinner & drinks'],
   ['2026-10-30T21:30', '2026-10-30T23:30', 'Bar'],
@@ -109,7 +109,7 @@ async function init() {
     subscribe();                 // sockets often die while the phone is locked
     refreshLeaderboard();
     (displayFeed ?? phoneFeed).catchUp();
-    if (!displayFeed) snapFeed.catchUp();
+    if (!displayFeed) { snapFeed.catchUp(); catchUpComments(); }
     if (state.player) { syncMyCompletions(); flushQueue(); }
   });
 }
@@ -316,6 +316,7 @@ function enterApp() {
     refreshLeaderboard();
     phoneFeed.catchUp();
     snapFeed.catchUp();
+    catchUpComments();
     flushQueue();
   }, LB_POLL_MS);
 }
@@ -352,17 +353,36 @@ function agendaItems() {
   });
 }
 
-// Simple plan: all days stacked, one row per slot, parallel options joined with "or"
-function renderAgenda(list = $('agenda-list'), scrollToToday = true) {
+// One day at a time behind day tabs, one row per slot, parallel options joined with "or"
+function renderAgenda(list = $('agenda-list')) {
   const items = agendaItems();
   const today = dayKey(new Date());
   const now = Date.now();
+  const days = [...new Set(items.map(i => i.day))];
+  // Keep the tab the user picked; otherwise today, or the first/last day outside the tour
+  if (!days.includes(list.dataset.day)) list.dataset.day = days.includes(today) ? today : today > days[days.length - 1] ? days[days.length - 1] : days[0];
   list.innerHTML = '';
 
-  [...new Set(items.map(i => i.day))].forEach(day => {
+  const tabs = document.createElement('div');
+  tabs.className = 'day-tabs';
+  tabs.innerHTML = days.map(day => {
+    const d = new Date(day + 'T12:00:00');
+    return `<button data-day="${day}" class="${day === list.dataset.day ? 'active' : ''}${day === today ? ' today' : ''}">
+      <b>${d.toLocaleDateString('en-GB', { weekday: 'short' })}</b><small>${d.getDate()} ${d.toLocaleDateString('en-GB', { month: 'short' })}</small></button>`;
+  }).join('');
+  tabs.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    list.dataset.day = b.dataset.day;
+    buzz(8);
+    renderAgenda(list);
+  });
+  list.appendChild(tabs);
+
+  days.filter(day => day === list.dataset.day).forEach(day => {
     const d = new Date(day + 'T12:00:00');
     const section = document.createElement('section');
-    section.className = 'plan-day' + (day === today ? ' today' : '') + (day < today ? ' past' : '');
+    section.className = 'plan-day' + (day === today ? ' today' : '');
     section.innerHTML = `<h3>${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}${day === today ? '<span>Today</span>' : ''}</h3>`;
 
     const slots = [];
@@ -388,8 +408,6 @@ function renderAgenda(list = $('agenda-list'), scrollToToday = true) {
     });
     list.appendChild(section);
   });
-
-  if (scrollToToday) list.querySelector('.plan-day.today')?.scrollIntoView({ block: 'start', behavior: 'instant' });
 }
 
 // What the visit is about + where it is, so everyone knows what's going on
@@ -967,6 +985,7 @@ function createFeed(list, { root = list, pill, countEl, table = 'completions', c
       list.insertBefore(card(item), sentinel);
     });
     if (data.length) feed.cursor = data[data.length - 1].created_at;
+    if (data.length && !document.body.classList.contains('display-mode')) loadComments(table, data.map(d => d.id));
     if (data.length && (!feed.newest || data[0].created_at > feed.newest)) feed.newest = data[0].created_at;
     if (data.length < FEED_PAGE) {
       feed.finished = true;
@@ -1074,6 +1093,7 @@ function feedCard(item) {
   const ready = () => img.classList.add('loaded');
   img.complete ? ready() : img.addEventListener('load', ready, { once: true });
   card.querySelector('.feed-photo').addEventListener('click', () => openLightbox(item.photo_url));
+  attachComments(card, `completion:${item.id}`);
   return card;
 }
 
@@ -1094,7 +1114,127 @@ function snapCard(item) {
   const ready = () => img.classList.add('loaded');
   img.complete ? ready() : img.addEventListener('load', ready, { once: true });
   card.querySelector('.feed-photo').addEventListener('click', () => openLightbox(item.photo_url));
+  attachComments(card, `snap:${item.id}`);
   return card;
+}
+
+// ═══════════════════════════════════════════════
+// COMMENTS — under challenge photos and random snaps
+// ═══════════════════════════════════════════════
+
+const COMMENT_MAX = 140;
+const COMMENT_COLUMNS = 'id, completion_id, snap_id, player_name, body, created_at';
+const comments = new Map();   // "completion:<id>" | "snap:<id>" -> [comment], oldest first
+const openThreads = new Set();
+let newestComment = null;
+const commentKey = c => c.snap_id ? `snap:${c.snap_id}` : `completion:${c.completion_id}`;
+
+function addComment(c) {
+  const key = commentKey(c);
+  const list = comments.get(key) ?? [];
+  if (!newestComment || c.created_at > newestComment) newestComment = c.created_at;
+  if (list.some(x => x.id === c.id)) return;
+  list.push(c);
+  list.sort((a, b) => a.created_at.localeCompare(b.created_at));
+  comments.set(key, list);
+  renderThread(key);
+}
+
+function removeComment(id) {
+  for (const [key, list] of comments) {
+    const i = list.findIndex(c => c.id === id);
+    if (i < 0) continue;
+    list.splice(i, 1);
+    renderThread(key);
+    return;
+  }
+}
+
+// One query per feed page, not per card
+async function loadComments(table, ids) {
+  if (!db || !ids.length) return;
+  const col = table === 'snaps' ? 'snap_id' : 'completion_id';
+  const { data } = await db.from('comments').select(COMMENT_COLUMNS).in(col, ids).order('created_at').limit(1000);
+  data?.forEach(addComment);
+}
+
+// Realtime can drop events, so the poll also pulls comments newer than the last one we saw
+async function catchUpComments() {
+  if (!db) return;
+  // Without a baseline take the newest 200, never page through the whole history
+  const q = newestComment
+    ? db.from('comments').select(COMMENT_COLUMNS).gte('created_at', newestComment).order('created_at').limit(200)
+    : db.from('comments').select(COMMENT_COLUMNS).order('created_at', { ascending: false }).limit(200);
+  const { data } = await q;
+  data?.forEach(addComment);
+}
+
+function attachComments(card, key) {
+  if (document.body.classList.contains('display-mode')) return; // beamer stays photos only
+  const box = document.createElement('div');
+  box.className = 'cmts';
+  box.dataset.key = key;
+  box.innerHTML = `
+    <ul class="cmt-list"></ul>
+    <button class="cmt-toggle"></button>
+    <form class="cmt-form">
+      <input type="text" maxlength="${COMMENT_MAX}" placeholder="Add a comment..." enterkeyhint="send" autocomplete="off">
+      <button type="submit" aria-label="Send">↑</button>
+    </form>`;
+  box.querySelector('.cmt-toggle').addEventListener('click', () => {
+    openThreads.add(key);
+    renderThread(key);
+    box.querySelector('input').focus();
+  });
+  box.querySelector('.cmt-form').addEventListener('submit', e => { e.preventDefault(); sendComment(box); });
+  box.querySelector('.cmt-list').addEventListener('click', e => {
+    const del = e.target.closest('.cmt-del');
+    if (del) deleteComment(del.dataset.id);
+  });
+  card.appendChild(box);
+  renderThread(key, box);
+}
+
+function renderThread(key, only) {
+  const boxes = only ? [only] : document.querySelectorAll(`.cmts[data-key="${key}"]`);
+  const list = comments.get(key) ?? [];
+  const open = openThreads.has(key);
+  const shown = open ? list : list.slice(-2);
+  boxes.forEach(box => {
+    box.classList.toggle('open', open);
+    box.querySelector('.cmt-list').innerHTML = shown.map(c => `
+      <li data-cid="${c.id}"><b>${safe(c.player_name)}</b> <span>${safe(c.body)}</span>
+        <time>${timeAgo(c.created_at)}</time>${state.orgaPw ? `<button class="cmt-del" data-id="${c.id}" aria-label="Delete">🗑</button>` : ''}</li>`).join('');
+    box.querySelector('.cmt-toggle').textContent = list.length > shown.length ? `View all ${list.length} comments` : '💬 Add a comment';
+  });
+}
+
+async function sendComment(box) {
+  const input = box.querySelector('input');
+  const body = input.value.trim().slice(0, COMMENT_MAX);
+  if (!body || !db || !state.player || box.classList.contains('sending')) return;
+  const [kind, id] = box.dataset.key.split(':');
+  const target = { completion_id: kind === 'completion' ? id : null, snap_id: kind === 'snap' ? id : null };
+  box.classList.add('sending');
+  const orga = state.orgaPw && !isLive();
+  const { data, error } = await withTimeout(orga
+    ? db.rpc('orga_comment', { pw: state.orgaPw, p_player_id: state.player.id, p_player_name: state.player.name,
+        p_completion_id: target.completion_id, p_snap_id: target.snap_id, p_body: body })
+    : db.from('comments').insert({ ...target, player_id: state.player.id, player_name: state.player.name, body })
+        .select(COMMENT_COLUMNS).single(), 15000).catch(err => ({ error: err }));
+  box.classList.remove('sending');
+  // Text stays in the field on failure so nothing typed gets lost
+  if (error || !data) { showToast(error?.code === '23503' ? 'That post was deleted' : 'Could not send, try again'); buzz(60); return; }
+  input.value = '';
+  addComment(data);
+  buzz(10);
+}
+
+async function deleteComment(id) {
+  if (!state.orgaPw) return;
+  const { error } = await db.rpc('orga_delete_comment', { pw: state.orgaPw, p_id: id });
+  if (error) { showToast('Could not delete'); return; }
+  removeComment(id);
 }
 
 const phoneFeed = createFeed($('feed-list'), { root: $('view-feed'), pill: $('new-pill'), countEl: $('new-count') });
@@ -1134,6 +1274,8 @@ function subscribe() {
       if (!shown || !$('view-feed').classList.contains('active') || feedMode !== 'random') $('feed-dot').classList.add('on');
     })
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'snaps' }, ({ old }) => snapFeed.onDelete(old.id))
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, ({ new: c }) => { if (!displayFeed) addComment(c); })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comments' }, ({ old }) => removeComment(old.id))
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'completions' }, ({ old }) => {
       (displayFeed ?? phoneFeed).onDelete(old.id);
       scheduleLeaderboardRefresh();

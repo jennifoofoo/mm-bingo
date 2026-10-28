@@ -332,3 +332,64 @@ update agenda set info = 'ICEYE: radar satellites that see Earth day and night, 
   tags = array['SAR satellites', 'defense', 'Earth observation', 'NewSpace'] where title = 'ICEYE + LiveEO + Reflex Aerospace';
 update agenda set info = 'Lucid Capital: Berlin VC that backs AI founders at the very start (€36m inception fund). Zauber: AI agents for global logistics.',
   tags = array['VC', 'AI', 'inception fund'], address = 'Neue Schönhauser Straße 2, 10178 Berlin' where title = 'Zauber x Lucid Capital visit + dinner & drinks';
+
+-- Comments under challenge photos and random snaps
+create table if not exists comments (
+  id            uuid        primary key default gen_random_uuid(),
+  completion_id uuid        references completions(id) on delete cascade,
+  snap_id       uuid        references snaps(id) on delete cascade,
+  player_id     uuid        not null,
+  player_name   text        not null check (char_length(player_name) between 1 and 40),
+  body          text        not null check (char_length(body) between 1 and 140),
+  created_at    timestamptz not null default now(),
+  check ((completion_id is null) <> (snap_id is null))
+);
+create index if not exists comments_completion_idx on comments (completion_id);
+create index if not exists comments_snap_idx on comments (snap_id);
+create index if not exists comments_created_at_idx on comments (created_at);
+
+alter table comments enable row level security;
+drop policy if exists "read comments" on comments;
+drop policy if exists "insert comment after kickoff" on comments;
+create policy "read comments" on comments for select using (true);
+create policy "insert comment after kickoff" on comments for insert
+  with check (now() >= (select kickoff_at from config where id = 1));
+
+alter publication supabase_realtime add table comments;
+
+-- Orga may comment before kickoff (preview) and delete any comment
+create or replace function orga_comment(pw text, p_player_id uuid, p_player_name text,
+                                        p_completion_id uuid, p_snap_id uuid, p_body text) returns comments
+language plpgsql security definer set search_path = public as $$
+declare r comments;
+begin
+  if not exists (select 1 from admin_secret s where s.password = pw) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  insert into comments (player_id, player_name, completion_id, snap_id, body)
+  values (p_player_id, p_player_name, p_completion_id, p_snap_id, p_body)
+  returning * into r;
+  return r;
+end $$;
+grant execute on function orga_comment(text, uuid, text, uuid, uuid, text) to anon, authenticated;
+
+create or replace function orga_delete_comment(pw text, p_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from admin_secret s where s.password = pw) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  delete from comments where id = p_id;
+end $$;
+grant execute on function orga_delete_comment(text, uuid) to anon, authenticated;
+
+-- Friday lunch: two options (A or B)
+update agenda set title = 'Option A: Lunch at Planet A' where title = 'Lunch: Planet A';
+update agenda set title = 'Option B: Merantix AI (VC)',
+  info = 'Merantix: Berlin AI venture studio and VC, runs the AI Campus, a big hub for AI startups.',
+  tags = array['VC', 'AI', 'venture studio'], address = 'Max-Urich-Straße 3, 13355 Berlin'
+  where title = 'Alternative lunch';
+update agenda set info = 'Our home for the tour: Homaris Boxi Studios.', address = 'Boxhagener Str. 17, 10245 Berlin'
+  where title = 'Housing check-in';
+update agenda set info = 'Techno club in the RAW area, entrance via stairs from Warschauer Brücke.', address = 'Revaler Str. 99, 10245 Berlin'
+  where title = 'Lokschuppen: Disco';
