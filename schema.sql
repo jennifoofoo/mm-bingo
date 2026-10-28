@@ -265,3 +265,16 @@ update tasks t set points = v.points from (values
   ('reonic_fact', 1),
   ('drink', 1)
 ) as v(id, points) where t.id = v.id;
+
+-- Orga preview may check off before kickoff (password checked here, never in the app code)
+create or replace function orga_complete(pw text, p_player_id uuid, p_player_name text, p_task_id text,
+                                         p_photo_url text, p_w int, p_h int) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from admin_secret s where s.password = pw) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  insert into completions (player_id, player_name, task_id, photo_url, photo_w, photo_h)
+  values (p_player_id, p_player_name, p_task_id, p_photo_url, p_w, p_h);
+end $$;
+grant execute on function orga_complete(text, uuid, text, text, text, int, int) to anon, authenticated;

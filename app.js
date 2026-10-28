@@ -226,6 +226,7 @@ $('orga-form').addEventListener('submit', async e => {
   if (!data?.length) { showToast('Wrong password'); buzz(80); return; }
   state.tasks = data;
   state.preview = true;
+  state.orgaPw = $('orga-pw').value; // memory only, used for orga check-offs before kickoff
   state.player = { id: '00000000-0000-4000-8000-000000000000', name: 'Orga' };
   state.done = {};
   $('preview-badge').hidden = false;
@@ -546,7 +547,6 @@ function updateRankLabel() {
 
 function openSheet(taskId) {
   if (state.uploading) return;
-  if (state.preview && !isLive()) { showToast('Preview only. Check-offs open at kickoff.'); return; }
   const task = taskById(taskId);
   state.active = taskId;
   state.file = null;
@@ -689,10 +689,14 @@ async function sendPhoto(item, timeout = 30000) {
   const { error: upErr } = await withTimeout(db.storage.from(BUCKET).upload(path, new Blob([item.blob], { type: 'image/jpeg' }), { contentType: 'image/jpeg' }), timeout);
   if (upErr && !alreadyThere(upErr)) throw upErr;
   const url = db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-  const { error } = await withTimeout(db.from('completions').insert({
-    player_id: item.player_id, player_name: item.player_name, task_id: item.task_id,
-    photo_url: url, photo_w: item.w, photo_h: item.h,
-  }), 15000);
+  // Orga preview checks off through a password-guarded function, everyone else inserts directly
+  const { error } = await withTimeout(state.orgaPw && !isLive()
+    ? db.rpc('orga_complete', { pw: state.orgaPw, p_player_id: item.player_id, p_player_name: item.player_name,
+        p_task_id: item.task_id, p_photo_url: url, p_w: item.w, p_h: item.h })
+    : db.from('completions').insert({
+        player_id: item.player_id, player_name: item.player_name, task_id: item.task_id,
+        photo_url: url, photo_w: item.w, photo_h: item.h,
+      }), 15000);
   if (error && error.code !== '23505') throw error;
   item.stage = 'original';
   item.url = url;
