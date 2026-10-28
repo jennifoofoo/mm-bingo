@@ -738,4 +738,4 @@ body.display-mode { max-width: none; }
 .plan-sites { display: flex; flex-wrap: wrap; gap: 6px; }
 .plan-sites a { font-size: 13px; font-weight: 600; color: var(--teal); text-decoration: none; padding: 5px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
 .plan-prep { font-size: 12.5px !important; color: var(--muted) !important; }
-.plan-prep b { color: var(--gold) !important; }
+.plan-prep b { color: var(--gold) !important; white-space: nowrap; }
