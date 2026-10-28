@@ -45,6 +45,14 @@
         <label class="field-label" for="name-input">What do people call you?</label>
         <input type="text" id="name-input" class="name-input" placeholder="First name + initial" maxlength="40"
                autocomplete="given-name" autocorrect="off" autocapitalize="words" enterkeyhint="go">
+        <div id="welcome-back" class="welcome-back" hidden>
+          <b>Welcome back?</b>
+          <span id="welcome-back-text"></span>
+          <div class="wb-actions">
+            <button id="wb-me" class="wb-btn primary">That's me</button>
+            <button id="wb-new" class="wb-btn">I'm someone else</button>
+          </div>
+        </div>
       </div>
 
       <button id="go-btn" class="go-btn reveal" style="--d:6" disabled>
@@ -93,15 +101,10 @@
       <div id="view-tasks" class="view active">
         <button id="now-card" class="now-card" hidden></button>
         <div id="howto" class="howto" hidden>
+          <p><b>How it works:</b> do a challenge, add a photo as proof, climb the ranking. Team challenges: everyone in the photo checks it off.</p>
           <button id="howto-close" class="howto-close" aria-label="Close">×</button>
-          <b>How it works</b>
-          <ol>
-            <li>Do a challenge during the tour</li>
-            <li>Tap it and add a photo as proof</li>
-            <li>Collect points and climb the ranking</li>
-          </ol>
-          <small>Team challenges: everyone in the photo checks it off with that photo.</small>
         </div>
+        <div id="cat-chips" class="cat-chips"></div>
         <ul id="task-list" class="task-list"></ul>
         <button id="reset-btn" class="reset-btn">Not you? Switch player</button>
       </div>

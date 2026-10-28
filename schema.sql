@@ -188,3 +188,27 @@ $$;
 grant execute on function preview_tasks(text) to anon, authenticated;
 -- Set the password once in the SQL Editor (not committed):
 -- insert into admin_secret (password) values ('...') on conflict (id) do update set password = excluded.password;
+
+-- Task categories (tour / team / club / special) + cleaner texts without prefixes
+alter table tasks add column if not exists category text not null default 'tour'
+  check (category in ('tour', 'team', 'club', 'special'));
+
+update tasks set category = 'team'    where id in ('team_logo', 'team_founder', 'team_costume', 'drinking_game');
+update tasks set category = 'club'    where id in ('dj_selfie', 'last_standing', 'queue_conga', 'shot', 'makeup');
+update tasks set category = 'special' where id in ('fake_founder');
+
+update tasks set text = 'Recreate the logo of a startup you visit with your bodies, in front of their office' where id = 'team_logo';
+update tasks set text = 'Get a founder from a visit into your crew selfie'                                     where id = 'team_founder';
+update tasks set text = 'Costume group photo with at least one stranger at the party'                          where id = 'team_costume';
+update tasks set text = 'Get a selfie with the DJ or someone behind the decks'                                 where id = 'dj_selfie';
+update tasks set text = 'Convince a stranger you''re a famous Munich founder until they want a selfie with you' where id = 'fake_founder';
+update tasks set text = 'Still be on the dance floor when the lights go on (photo with lights on)'            where id = 'last_standing';
+update tasks set text = 'Start a conga line with at least 5 strangers in the Lokschuppen queue'                where id = 'queue_conga';
+
+-- Recreate preview function so it returns the new column
+create or replace function preview_tasks(pw text) returns setof tasks
+language sql stable security definer set search_path = public as $$
+  select t.* from tasks t
+  where exists (select 1 from admin_secret s where s.password = pw)
+  order by t.sort;
+$$;

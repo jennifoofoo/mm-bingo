@@ -53,6 +53,7 @@ const state = {
   agenda: FALLBACK_AGENDA,
   player: null,        // { id, name }
   done: {},            // task_id -> { photo_url }
+  pending: new Set(),  // task_ids saved on the phone, waiting for signal
   active: null,        // task_id open in the sheet
   file: null,
   uploading: false,
@@ -106,13 +107,13 @@ async function init() {
     subscribe();                 // sockets often die while the phone is locked
     refreshLeaderboard();
     (displayFeed ?? phoneFeed).catchUp();
-    if (state.player) syncMyCompletions();
+    if (state.player) { syncMyCompletions(); flushQueue(); }
   });
 }
 
 async function loadTasks() {
   if (!db) return;
-  const { data } = await db.from('tasks').select('id, text, points, sort').order('sort');
+  const { data } = await db.from('tasks').select('*').order('sort');
   if (data?.length) state.tasks = data;
 }
 
@@ -245,17 +246,43 @@ goBtn.addEventListener('click', () => {
 nameInput.addEventListener('input', () => { goBtn.disabled = !nameInput.value.trim(); });
 nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') startPlaying(); });
 
-function startPlaying() {
+// Same name as an existing player = probably a new phone or cleared browser → offer to continue
+let returning = null;
+
+async function startPlaying() {
   if (!isLive()) return;
   const name = nameInput.value.trim().slice(0, 40);
   if (!name) return;
-  state.player = { id: crypto.randomUUID?.() ?? uuidFallback(), name };
+  if (db && !returning) {
+    const { data } = await db.from('leaderboard').select('player_id, player_name, points').ilike('player_name', name.replace(/[%_]/g, ''));
+    if (data?.length) {
+      returning = data[0];
+      $('welcome-back-text').textContent = `${returning.player_name} already has ${returning.points} point${returning.points === 1 ? '' : 's'}. Is that you?`;
+      $('welcome-back').hidden = false;
+      buzz(15);
+      return;
+    }
+  }
+  beginAs(crypto.randomUUID?.() ?? uuidFallback(), name);
+}
+
+function beginAs(id, name) {
+  state.player = { id, name };
   state.done = {};
   lsSet(LS_PLAYER, state.player);
   lsSet(LS_DONE, state.done);
   buzz(20);
   enterApp();
 }
+
+$('wb-me').addEventListener('click', () => beginAs(returning.player_id, returning.player_name));
+$('wb-new').addEventListener('click', () => {
+  $('welcome-back').hidden = true;
+  returning = null;
+  nameInput.focus();
+  showToast('Pick a slightly different name, e.g. add your last initial');
+});
+nameInput.addEventListener('input', () => { returning = null; $('welcome-back').hidden = true; });
 
 // ═══════════════════════════════════════════════
 // APP SHELL
@@ -277,12 +304,14 @@ function enterApp() {
   if (!db) return;
   subscribe();
   syncMyCompletions();
+  restorePending();
   refreshLeaderboard();
   clearInterval(lbPollTimer);
   lbPollTimer = setInterval(() => {
     if (document.visibilityState !== 'visible') return;
     refreshLeaderboard();
     phoneFeed.catchUp();
+    flushQueue();
   }, LB_POLL_MS);
 }
 
@@ -414,31 +443,83 @@ async function syncMyCompletions() {
 // TASK LIST
 // ═══════════════════════════════════════════════
 
+const isSettled = id => !!state.done[id] || state.pending.has(id);
+
+const CATEGORIES = [
+  { id: 'tour',    label: 'Tour',    sub: 'At the visits and in between',
+    icon: '<path d="M4 21V5a1 1 0 011-1h9a1 1 0 011 1v16M15 9h4a1 1 0 011 1v11M3 21h18M8 8h3M8 12h3M8 16h3"/>' },
+  { id: 'team',    label: 'Team',    sub: '3+ people. Everyone in the photo checks it off',
+    icon: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0112 0M16 5a3 3 0 010 6M21 20a6 6 0 00-4-5.6"/>' },
+  { id: 'club',    label: 'Club',    sub: 'Lokschuppen, bars and the night',
+    icon: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>' },
+  { id: 'special', label: 'Special', sub: 'Spicy. Big points.',
+    icon: '<path d="M12 22c4 0 7-2.7 7-7 0-4-3-6.5-4-10-2.5 1.5-4 4-4 6.5C9.5 10 8.5 9 8 7.5 6 9.5 5 12 5 15c0 4.3 3 7 7 7z"/>' },
+];
+const catOf = t => CATEGORIES.some(c => c.id === t.category) ? t.category : 'tour';
+const catIcon = c => `<svg viewBox="0 0 24 24" aria-hidden="true">${c.icon}</svg>`;
+state.cat = 'all';
+
+function renderCatChips() {
+  const el = $('cat-chips');
+  el.innerHTML = '';
+  [{ id: 'all', label: 'All' }, ...CATEGORIES.filter(c => state.tasks.some(t => catOf(t) === c.id))].forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'cat-chip' + (state.cat === c.id ? ' active' : '');
+    b.innerHTML = `${c.icon ? catIcon(c) : ''}<span>${c.label}</span>`;
+    b.addEventListener('click', () => {
+      state.cat = c.id;
+      renderTasks();
+      $('view-tasks').scrollTo({ top: 0, behavior: REDUCED_MOTION ? 'auto' : 'smooth' });
+      buzz(8);
+    });
+    el.appendChild(b);
+  });
+}
+
 function renderTasks() {
   const list = $('task-list');
   list.innerHTML = '';
   if (!state.tasks.length) {
+    $('cat-chips').innerHTML = '';
     list.innerHTML = '<li class="task-loading"><div class="spinner"></div>Loading challenges…</li>';
     return;
   }
-  // Open tasks first (highest points on top), done ones sink to the bottom
-  const sorted = [...state.tasks].sort((a, b) =>
-    (!!state.done[a.id] - !!state.done[b.id]) || (b.points - a.points));
+  renderCatChips();
 
-  sorted.forEach((task, i) => {
-    const done = state.done[task.id];
-    const li = document.createElement('li');
-    li.className = 'task' + (done ? ' done' : '');
-    li.style.setProperty('--i', i);
-    li.dataset.id = task.id;
-    li.innerHTML = `
-      <span class="pts-badge">${task.points}<small>pt${task.points > 1 ? 's' : ''}</small></span>
-      <span class="task-text">${safe(task.text)}</span>
-      ${done
-        ? `<span class="task-thumb"><img src="${safe(done.photo_url)}" alt="" loading="lazy" decoding="async"><i>✓</i></span>`
-        : `<span class="task-cta"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>`}`;
-    li.addEventListener('click', () => done ? openLightbox(done.photo_url) : openSheet(task.id));
-    list.appendChild(li);
+  let i = 0;
+  CATEGORIES.filter(c => state.cat === 'all' || state.cat === c.id).forEach(cat => {
+    // Open tasks first (highest points on top), done ones sink to the bottom of their group
+    const tasks = state.tasks.filter(t => catOf(t) === cat.id).sort((a, b) =>
+      (isSettled(a.id) - isSettled(b.id)) || (b.points - a.points));
+    if (!tasks.length) return;
+
+    const head = document.createElement('li');
+    head.className = `task-section cat-${cat.id}`;
+    head.innerHTML = `<span class="sec-icon">${catIcon(cat)}</span><span class="sec-text"><b>${cat.label}</b><small>${cat.sub}</small></span><span class="sec-count">${tasks.filter(t => isSettled(t.id)).length}/${tasks.length}</span>`;
+    list.appendChild(head);
+
+    tasks.forEach(task => {
+      const done = state.done[task.id];
+      const pending = !done && state.pending.has(task.id);
+      const li = document.createElement('li');
+      li.className = `task cat-${cat.id}` + (done ? ' done' : '') + (pending ? ' pending' : '');
+      li.style.setProperty('--i', i++);
+      li.dataset.id = task.id;
+      li.innerHTML = `
+        <span class="pts-badge">${task.points}<small>pt${task.points > 1 ? 's' : ''}</small></span>
+        <span class="task-text">${safe(task.text)}</span>
+        ${done
+          ? `<span class="task-thumb"><img src="${safe(done.photo_url)}" alt="" loading="lazy" decoding="async"><i>✓</i></span>`
+          : pending
+            ? `<span class="task-wait"><span class="spinner sm"></span><small>Waiting for signal</small></span>`
+            : `<span class="task-cta"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>`}`;
+      li.addEventListener('click', () => {
+        if (done) openLightbox(done.photo_url);
+        else if (pending) { showToast('Saved on your phone. Uploads when you have signal.'); flushQueue(); }
+        else openSheet(task.id);
+      });
+      list.appendChild(li);
+    });
   });
 }
 
@@ -509,85 +590,168 @@ $('submit-btn').addEventListener('click', async () => {
   $('submit-btn').disabled = !state.file;
 });
 
+// ═══════════════════════════════════════════════
+// OFFLINE QUEUE — a check-off is saved on the phone before any network call,
+// so bad club signal never blocks playing; it syncs as soon as there is signal
+// ═══════════════════════════════════════════════
+
+const memQueue = new Map(); // fallback when IndexedDB is unavailable (some private modes)
+
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('bt-queue', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('items', { keyPath: 'key' });
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function qAll() {
+  try {
+    const d = await idb();
+    const rows = await new Promise((res, rej) => {
+      const r = d.transaction('items').objectStore('items').getAll();
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return [...rows, ...memQueue.values()];
+  } catch (e) { return [...memQueue.values()]; }
+}
+async function qPut(item) {
+  try {
+    const d = await idb();
+    await new Promise((res, rej) => {
+      const t = d.transaction('items', 'readwrite');
+      t.objectStore('items').put(item);
+      t.oncomplete = res; t.onerror = () => rej(t.error);
+    });
+  } catch (e) { memQueue.set(item.key, item); }
+}
+async function qDel(key) {
+  memQueue.delete(key);
+  try {
+    const d = await idb();
+    await new Promise(res => { const t = d.transaction('items', 'readwrite'); t.objectStore('items').delete(key); t.oncomplete = res; t.onerror = res; });
+  } catch (e) {}
+}
+
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+const alreadyThere = err => /exists|duplicate/i.test(err?.message ?? '') || err?.statusCode === '409';
+// Errors that will never succeed on retry (bad data, locked before kickoff stays retryable)
+const permanent = err => err?.code && err.code.startsWith('23') && err.code !== '23505';
+
 async function submitCompletion() {
-  if (!db) { showToast('Not connected. Try again in a sec.'); return; }
   const taskId = state.active;
-  const original = state.file;
   const task = taskById(taskId);
+  const file = state.file;
   state.uploading = true;
   showLoading('Uploading...');
 
-  const onUnload = e => { e.preventDefault(); e.returnValue = ''; };
-  window.addEventListener('beforeunload', onUnload);
-
   try {
-    const photo = await uploadWithRetry(state.file);
-    const { error } = await db.from('completions').insert({
-      player_id:   state.player.id,
-      player_name: state.player.name,
-      task_id:     taskId,
-      photo_url:   photo.url,
-      photo_w:     photo.w,
-      photo_h:     photo.h,
-    });
+    const img = await compressImage(file);
+    const item = {
+      key: `${state.player.id}:${taskId}`,
+      player_id: state.player.id, player_name: state.player.name, task_id: taskId,
+      // Raw bytes instead of Blob/File: Safari can refuse to store File objects in IndexedDB
+      blob: await img.blob.arrayBuffer(), w: img.w, h: img.h,
+      original: await file.arrayBuffer(), origType: file.type || 'image/jpeg', origExt: (file.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg',
+      stamp: Date.now(), stage: 'photo',
+    };
+    await qPut(item);
+    state.pending.add(taskId);
 
-    // 23505 = unique violation: already checked off (double tap, second tab) — not an error for the user
-    if (error && error.code !== '23505') throw error;
+    let synced = false;
+    try { synced = await sendPhoto(item, 25000); } catch (e) { console.warn('queued', e); }
 
-    state.done[taskId] = { photo_url: photo.url };
-    uploadOriginal(original, taskId); // fire and forget, the player never waits for it
-    lsSet(LS_DONE, state.done);
     state.uploading = false;
     closeSheet();
-    renderTasks();
-    updateScore(true);
-    celebrate(task.points);
-    refreshLeaderboard();
+    if (synced) {
+      markSynced(item);
+      celebrate(task.points);
+    } else {
+      renderTasks();
+      showToast('Saved. Uploads when you have signal.');
+      buzz(20);
+    }
+    flushQueue(); // original upload (and anything else waiting) in the background
   } catch (err) {
     console.error(err);
-    showToast('Upload failed. Try again?');
+    showToast('Could not read that photo. Try another one?');
   } finally {
     state.uploading = false;
     hideLoading();
-    window.removeEventListener('beforeunload', onUnload);
   }
 }
 
-// Full-resolution copy for printing, in a private bucket (insert-only, not publicly readable)
-let originalsPending = 0;
-const guardOriginals = e => { e.preventDefault(); e.returnValue = ''; };
+// Feed photo + DB row. Deterministic path so a retry after a half-finished attempt is safe.
+async function sendPhoto(item, timeout = 30000) {
+  if (!db || item.stage !== 'photo') return item.stage !== 'photo';
+  const path = `${item.player_id}/${item.task_id}-${item.stamp}.jpg`;
+  const { error: upErr } = await withTimeout(db.storage.from(BUCKET).upload(path, new Blob([item.blob], { type: 'image/jpeg' }), { contentType: 'image/jpeg' }), timeout);
+  if (upErr && !alreadyThere(upErr)) throw upErr;
+  const url = db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  const { error } = await withTimeout(db.from('completions').insert({
+    player_id: item.player_id, player_name: item.player_name, task_id: item.task_id,
+    photo_url: url, photo_w: item.w, photo_h: item.h,
+  }), 15000);
+  if (error && error.code !== '23505') throw error;
+  item.stage = 'original';
+  item.url = url;
+  item.blob = null;
+  await qPut(item);
+  return true;
+}
 
-async function uploadOriginal(file, taskId, attempts = 4) {
-  if (!db || !file) return;
-  if (originalsPending++ === 0) window.addEventListener('beforeunload', guardOriginals);
-  const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-  const path = `${state.player.id}/${taskId}-${Date.now()}.${ext}`;
+// Full-resolution copy for printing, private bucket (insert-only, not publicly readable)
+async function sendOriginal(item) {
+  if (item.original) {
+    const path = `${item.player_id}/${item.task_id}-${item.stamp}.${item.origExt}`;
+    const { error } = await withTimeout(db.storage.from(ORIGINALS_BUCKET).upload(path, new Blob([item.original], { type: item.origType }), { contentType: item.origType }), 180000);
+    if (error && !alreadyThere(error)) throw error;
+  }
+  await qDel(item.key);
+}
+
+function markSynced(item) {
+  if (item.player_id !== state.player?.id) return;
+  state.pending.delete(item.task_id);
+  state.done[item.task_id] = { photo_url: item.url };
+  lsSet(LS_DONE, state.done);
+  renderTasks();
+  updateScore(true);
+  refreshLeaderboard();
+}
+
+let flushing = false;
+async function flushQueue() {
+  if (!db || flushing) return;
+  flushing = true;
   try {
-    for (let i = 0; i < attempts; i++) {
-      const { error } = await db.storage.from(ORIGINALS_BUCKET).upload(path, file, { contentType: file.type || 'image/jpeg' });
-      if (!error) return;
-      if (i === attempts - 1) console.error('original upload failed', error);
-      else await new Promise(r => setTimeout(r, 2000 * (i + 1)));
+    for (const item of await qAll()) {
+      try {
+        if (item.stage === 'photo') {
+          await sendPhoto(item);
+          markSynced(item);
+          const t = taskById(item.task_id);
+          if (t) { showToast(`Synced ✓ +${t.points} point${t.points > 1 ? 's' : ''}`); buzz([30, 40, 60]); }
+        }
+        await sendOriginal(item);
+      } catch (err) {
+        if (permanent(err)) { await qDel(item.key); state.pending.delete(item.task_id); renderTasks(); }
+        if (err?.message === 'timeout' || !navigator.onLine) break; // no signal: stop, try again later
+      }
     }
   } finally {
-    if (--originalsPending === 0) window.removeEventListener('beforeunload', guardOriginals);
+    flushing = false;
   }
 }
 
-async function uploadWithRetry(file, attempts = 3) {
-  const img = await compressImage(file);
-  const fileName = `${state.player.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-
-  for (let i = 0; i < attempts; i++) {
-    const { error } = await db.storage.from(BUCKET).upload(fileName, img.blob, { contentType: 'image/jpeg' });
-    if (!error) break;
-    if (i === attempts - 1) throw error;
-    await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-    showLoading(`Retrying... (${i + 2}/${attempts})`);
-  }
-
-  return { url: db.storage.from(BUCKET).getPublicUrl(fileName).data.publicUrl, w: img.w, h: img.h };
+async function restorePending() {
+  const mine = (await qAll()).filter(i => i.player_id === state.player.id && i.stage === 'photo');
+  mine.forEach(i => state.pending.add(i.task_id));
+  if (mine.length) renderTasks();
+  flushQueue();
 }
+
+window.addEventListener('online', () => flushQueue());
 
 // Compress to max 1080px JPEG and report dimensions so the feed can reserve space (no layout jumps)
 function compressImage(file) {
