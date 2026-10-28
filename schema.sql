@@ -171,3 +171,20 @@ create policy "upload originals" on storage.objects
     bucket_id = 'bingo-originals'
     and (storage.foldername(name))[1] ~ '^[0-9a-f-]{36}$'
   );
+
+-- ─── Orga preview: password lives only here (table has no policies = unreadable from outside) ───
+create table if not exists admin_secret (
+  id       int  primary key default 1 check (id = 1),
+  password text not null
+);
+alter table admin_secret enable row level security;
+
+create or replace function preview_tasks(pw text) returns setof tasks
+language sql stable security definer set search_path = public as $$
+  select t.* from tasks t
+  where exists (select 1 from admin_secret s where s.password = pw)
+  order by t.sort;
+$$;
+grant execute on function preview_tasks(text) to anon, authenticated;
+-- Set the password once in the SQL Editor (not committed):
+-- insert into admin_secret (password) values ('...') on conflict (id) do update set password = excluded.password;

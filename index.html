@@ -28,30 +28,17 @@
         <span class="reveal year" style="--d:4">2026</span>
       </h1>
 
-      <div class="countdown-card reveal" style="--d:5">
-        <div class="cd-head">
-          <span class="cd-eyebrow cd-pre">Human Bingo drops in</span>
-          <span class="cd-eyebrow cd-post"><span class="live-pill">Live</span> Human Bingo is on</span>
-        </div>
-        <div class="cd-digits cd-pre">
-          <div class="cd-unit"><b data-u="d">00</b><small>days</small></div><i>:</i>
-          <div class="cd-unit"><b data-u="h">00</b><small>hrs</small></div><i>:</i>
-          <div class="cd-unit"><b data-u="m">00</b><small>min</small></div><i>:</i>
-          <div class="cd-unit"><b data-u="s">00</b><small>sec</small></div>
+      <div class="countdown reveal" style="--d:5">
+        <div class="cd-eyebrow cd-pre">Something starts in</div>
+        <div class="cd-eyebrow cd-post"><span class="live-pill">Live</span></div>
+        <div class="cd-line cd-pre">
+          <span class="cd-unit"><b data-u="d">00</b><small>d</small></span>
+          <span class="cd-unit"><b data-u="h">00</b><small>h</small></span>
+          <span class="cd-unit"><b data-u="m">00</b><small>m</small></span>
+          <span class="cd-unit"><b data-u="s">00</b><small>s</small></span>
         </div>
         <div class="cd-big cd-post">It's on.</div>
         <div id="cd-when" class="cd-when"></div>
-
-        <div class="teaser cd-pre" aria-hidden="true">
-          <div class="teaser-card"><span class="pts-badge">?</span><span class="teaser-lines"><i></i><i></i></span></div>
-          <div class="teaser-card"><span class="pts-badge">?</span><span class="teaser-lines"><i></i><i></i></span></div>
-          <div class="teaser-card"><span class="pts-badge">?</span><span class="teaser-lines"><i></i><i></i></span></div>
-          <div class="teaser-lock">
-            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
-            <b>Challenges are a surprise</b>
-            <small>Points, photos, one leaderboard.</small>
-          </div>
-        </div>
       </div>
 
       <div id="name-step" class="name-step">
@@ -69,6 +56,14 @@
         <h2 class="view-title">The 4 days</h2>
         <div id="splash-agenda" class="plan"></div>
       </section>
+
+      <div class="orga">
+        <button id="orga-link" class="orga-link">Orga</button>
+        <form id="orga-form" class="orga-form" hidden>
+          <input id="orga-pw" type="password" placeholder="Password" autocomplete="current-password">
+          <button type="submit">Preview</button>
+        </form>
+      </div>
     </div>
     <div class="marquee" aria-hidden="true">
       <div class="marquee-track">
@@ -83,7 +78,7 @@
     <header class="app-header">
       <div class="score-row">
         <div>
-          <div class="eyebrow">Berlin 2026</div>
+          <div class="eyebrow">Berlin 2026 <span id="preview-badge" class="preview-badge" hidden>Orga preview</span></div>
           <div id="player-name" class="player-name">-</div>
         </div>
         <div class="score">
@@ -97,6 +92,16 @@
     <main class="views">
       <div id="view-tasks" class="view active">
         <button id="now-card" class="now-card" hidden></button>
+        <div id="howto" class="howto" hidden>
+          <button id="howto-close" class="howto-close" aria-label="Close">×</button>
+          <b>How it works</b>
+          <ol>
+            <li>Do a challenge during the tour</li>
+            <li>Tap it and add a photo as proof</li>
+            <li>Collect points and climb the ranking</li>
+          </ol>
+          <small>Team challenges: everyone in the photo checks it off with that photo.</small>
+        </div>
         <ul id="task-list" class="task-list"></ul>
         <button id="reset-btn" class="reset-btn">Not you? Switch player</button>
       </div>
@@ -144,6 +149,11 @@
       <div class="display-title">Startup Tour <span class="accent">Berlin 2026</span></div>
       <button id="fullscreen-btn" class="ghost-btn">⛶ Fullscreen</button>
     </header>
+    <div class="display-wait">
+      <div class="cd-eyebrow">Something starts in</div>
+      <div id="display-countdown" class="display-countdown">-</div>
+      <div class="display-wait-sub">Thu 29 Oct · 15:00 · Housing check-in</div>
+    </div>
     <div class="display-body">
       <div class="display-lb-col">
         <h2 class="view-title">Leaderboard</h2>

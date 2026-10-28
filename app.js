@@ -208,8 +208,27 @@ function setSplashLive(live) {
   goBtn.disabled = !live;
   $('go-label').textContent = live
     ? "Let's fucking go"
-    : `🔒 Unlocks ${state.kickoff.toLocaleDateString('en-GB', { weekday: 'short', timeZone: TZ })} ${fmtTime(state.kickoff)}`;
+    : `Opens ${state.kickoff.toLocaleDateString('en-GB', { weekday: 'short', timeZone: TZ })} ${fmtTime(state.kickoff)}`;
 }
+
+// Orga preview: the password is checked inside the DB (preview_tasks), never shipped in this file
+$('orga-link').addEventListener('click', () => {
+  $('orga-form').hidden = false;
+  $('orga-pw').focus();
+});
+
+$('orga-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!db) return;
+  const { data } = await db.rpc('preview_tasks', { pw: $('orga-pw').value });
+  if (!data?.length) { showToast('Wrong password'); buzz(80); return; }
+  state.tasks = data;
+  state.preview = true;
+  state.player = { id: '00000000-0000-4000-8000-000000000000', name: 'Orga' };
+  state.done = {};
+  $('preview-badge').hidden = false;
+  enterApp();
+});
 
 goBtn.addEventListener('click', () => {
   if (!isLive()) return;
@@ -250,6 +269,7 @@ function enterApp() {
   renderTasks();
   updateScore(false);
   if (!state.tasks.length) ensureTasks();
+  if (!lsGet('bt-howto-seen', false)) $('howto').hidden = false;
   renderAgenda();
   renderNowCard();
   setInterval(() => { renderNowCard(); if ($('view-agenda').classList.contains('active')) renderAgenda(); }, 60000);
@@ -364,6 +384,11 @@ function relDay(d) {
   return d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: TZ });
 }
 
+$('howto-close').addEventListener('click', () => {
+  $('howto').hidden = true;
+  lsSet('bt-howto-seen', true);
+});
+
 $('reset-btn').addEventListener('click', () => {
   if (!confirm('Switch player? Your points stay on the leaderboard, but this phone starts fresh.')) return;
   [LS_PLAYER, LS_DONE].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
@@ -439,6 +464,7 @@ function updateRankLabel() {
 
 function openSheet(taskId) {
   if (state.uploading) return;
+  if (state.preview && !isLive()) { showToast('Preview only. Check-offs open at kickoff.'); return; }
   const task = taskById(taskId);
   state.active = taskId;
   state.file = null;
@@ -636,7 +662,7 @@ async function refreshLeaderboard() {
   state.lbRows = data;
   updateRankLabel();
   const target = document.body.classList.contains('display-mode') ? $('display-lb') : $('lb-list');
-  renderLeaderboard(target, data);
+  renderLeaderboard(target, document.body.classList.contains('display-mode') ? data.slice(0, 15) : data);
 }
 
 // Keyed render with FLIP: rows glide to their new rank instead of jumping
@@ -863,6 +889,25 @@ function subscribe() {
 function initDisplay() {
   if (!db) {
     $('display-lb').innerHTML = '<li class="empty">Supabase not configured</li>';
+    return;
+  }
+  // Before kickoff (or while tasks are still locked) show a countdown, then reload once tasks unlock
+  if (!isLive() || !state.tasks.length) {
+    document.body.classList.add('display-waiting');
+    const tick = async () => {
+      const ms = state.kickoff.getTime() - Date.now();
+      if (ms > 0) {
+        const sec = Math.floor(ms / 1000);
+        const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, s2 = sec % 60;
+        $('display-countdown').textContent = `${h}:${String(m).padStart(2, '0')}:${String(s2).padStart(2, '0')}`;
+        return;
+      }
+      $('display-countdown').textContent = "It's on.";
+      await loadTasks();
+      if (state.tasks.length) location.reload();
+    };
+    tick();
+    setInterval(tick, 1000);
     return;
   }
   displayFeed = createFeed($('display-feed'));
