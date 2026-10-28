@@ -229,7 +229,7 @@ on conflict (id) do update set text = excluded.text, points = excluded.points, c
 insert into tasks (id, text, points, sort, category) values
   ('iceye_defense', 'At ICEYE, ask the defense question nobody else dares to ask, and get a real answer', 6, 26, 'special'),
   ('real_offer',    'Leave Berlin with a real offer: job, internship or investor intro from someone you met on the tour (screenshot counts)', 10, 27, 'special'),
-  ('win_drinking',  'Win a drinking game against someone outside MM', 3, 28, 'club')
+  ('win_drinking',  'Win a drinking game', 3, 28, 'club')
 on conflict (id) do nothing;
 
 update tasks set text = 'Buy a drink (any kind) for someone who isn''t your friend yet' where id = 'drink';
