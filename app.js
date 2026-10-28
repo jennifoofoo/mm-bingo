@@ -1,5 +1,5 @@
 // Tasks live only in the `tasks` table and stay unreadable until kickoff (RLS), so they remain a surprise
-const DEFAULT_KICKOFF = '2026-10-29T15:00:00+01:00';
+const DEFAULT_KICKOFF = '2026-10-29T13:00:00+01:00';
 
 // Agenda fallback; the source of truth is the `agenda` table (Berlin time, CET = +01:00)
 const FALLBACK_AGENDA = [

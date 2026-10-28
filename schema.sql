@@ -477,3 +477,6 @@ insert into tasks (id, text, points, sort, category) values
   ('prep_space',       'ICEYE / LiveEO / Reflex: check a website before the visit and ask them one question you prepared', 1, 105, 'tour'),
   ('prep_lucid',       'Zauber x Lucid: check a website before the visit and ask them one question you prepared',  1, 106, 'tour')
 on conflict (id) do update set text = excluded.text, points = excluded.points, sort = excluded.sort, category = excluded.category;
+
+-- Kickoff moved to 13:00 (28 Oct)
+update config set kickoff_at = '2026-10-29 13:00 Europe/Berlin' where id = 1;
