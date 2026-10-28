@@ -83,23 +83,24 @@ async function init() {
     db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 
-  await Promise.all([loadConfig(), loadAgenda()]);
-  if (isLive()) await loadTasks();
-
-  if (new URLSearchParams(location.search).get('display') === 'true') {
-    document.body.classList.add('display-mode');
-    showScreen('display');
-    initDisplay();
-    return;
-  }
-
+  const display = new URLSearchParams(location.search).get('display') === 'true';
   state.player = lsGet(LS_PLAYER, null);
   state.done   = lsGet(LS_DONE, {});
 
-  if (state.player?.id && isLive()) {
+  // Paint immediately with built-in data; a slow or hanging network must never leave a black screen
+  if (display) { document.body.classList.add('display-mode'); showScreen('display'); }
+  else showSplash();
+
+  const soft = p => withTimeout(p, 5000).catch(() => {});
+  await Promise.all([soft(loadConfig()), soft(loadAgenda())]);
+  if (isLive()) await soft(loadTasks());
+
+  if (display) {
+    initDisplay();
+  } else if (state.player?.id && isLive()) {
     enterApp();
   } else {
-    showSplash();
+    showSplash(); // re-render with the server's kickoff time and agenda
   }
 
   document.addEventListener('visibilitychange', () => {
