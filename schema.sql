@@ -393,3 +393,45 @@ update agenda set info = 'Our home for the tour: Homaris Boxi Studios.', address
   where title = 'Housing check-in';
 update agenda set info = 'Techno club in the RAW area, entrance via stairs from Warschauer Brücke.', address = 'Revaler Str. 99, 10245 Berlin'
   where title = 'Lokschuppen: Disco';
+
+-- Hardening after security review (28 Oct)
+-- Photo rows: the photo must really exist in our own bucket (no fake points without a photo, no foreign hosts),
+-- and the server sets the time (no posts pinned to the top with a future date)
+create or replace function check_photo_row() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare prefix constant text := 'https://ukqwmhrgclpgjpivdisw.supabase.co/storage/v1/object/public/bingo-photos/';
+begin
+  if new.photo_url not like prefix || new.player_id::text || '/%'
+     or not exists (select 1 from storage.objects o
+                    where o.bucket_id = 'bingo-photos' and o.name = substr(new.photo_url, length(prefix) + 1)) then
+    raise exception 'photo not found';
+  end if;
+  new.created_at := now();
+  return new;
+end $$;
+drop trigger if exists check_photo on completions;
+create trigger check_photo before insert on completions for each row execute function check_photo_row();
+drop trigger if exists check_photo on snaps;
+create trigger check_photo before insert on snaps for each row execute function check_photo_row();
+
+-- Comments: server time + a global brake against scripted spam (normal use is far below 60 per 10 s)
+create or replace function check_comment_row() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from comments where created_at > now() - interval '10 seconds') >= 60 then
+    raise exception 'slow down';
+  end if;
+  new.created_at := now();
+  return new;
+end $$;
+drop trigger if exists check_comment on comments;
+create trigger check_comment before insert on comments for each row execute function check_comment_row();
+
+-- Sane photo sizes (a 1x2000000000 photo would stretch the feed and the beamer forever)
+alter table completions drop constraint if exists photo_size;
+alter table completions add constraint photo_size check (photo_w between 1 and 10000 and photo_h between 1 and 10000) not valid;
+alter table snaps drop constraint if exists photo_size;
+alter table snaps add constraint photo_size check (photo_w between 1 and 10000 and photo_h between 1 and 10000) not valid;
+
+-- A retried upload must never create a second random post
+create unique index if not exists snaps_photo_url_key on snaps (photo_url);

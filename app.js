@@ -46,6 +46,7 @@ let db = null;
 let channel = null;
 let lbTimer = null;
 let lbPollTimer = null;
+let agendaTimer = null;
 
 const state = {
   tasks: [],
@@ -121,11 +122,15 @@ async function loadTasks() {
 }
 
 // Retry until the challenges arrive (RLS returns [] until the server clock passes kickoff)
+let ensuring = false;
 async function ensureTasks() {
+  if (ensuring) return;
+  ensuring = true;
   for (let i = 0; i < 15 && !state.tasks.length; i++) {
-    await loadTasks();
+    await loadTasks().catch(() => {});
     if (!state.tasks.length) await new Promise(r => setTimeout(r, 2000));
   }
+  ensuring = false;
   $('score-max').textContent = maxPoints();
   renderTasks();
   updateScore(false);
@@ -303,7 +308,8 @@ function enterApp() {
   if (!lsGet('bt-howto-seen', false)) $('howto').hidden = false;
   renderAgenda();
   renderNowCard();
-  setInterval(() => { renderNowCard(); if ($('view-agenda').classList.contains('active')) renderAgenda(); }, 60000);
+  clearInterval(agendaTimer);
+  agendaTimer = setInterval(() => { renderNowCard(); if ($('view-agenda').classList.contains('active')) renderAgenda(); }, 60000);
 
   if (!db) return;
   subscribe();
@@ -313,6 +319,7 @@ function enterApp() {
   clearInterval(lbPollTimer);
   lbPollTimer = setInterval(() => {
     if (document.visibilityState !== 'visible') return;
+    if (!state.tasks.length) ensureTasks();
     refreshLeaderboard();
     phoneFeed.catchUp();
     snapFeed.catchUp();
@@ -360,7 +367,8 @@ function renderAgenda(list = $('agenda-list')) {
   const now = Date.now();
   const days = [...new Set(items.map(i => i.day))];
   // Keep the tab the user picked; otherwise today, or the first/last day outside the tour
-  if (!days.includes(list.dataset.day)) list.dataset.day = days.includes(today) ? today : today > days[days.length - 1] ? days[days.length - 1] : days[0];
+  // Only a tap pins a day; otherwise follow today so a phone left open overnight moves on
+  if (!list.dataset.picked || !days.includes(list.dataset.day)) list.dataset.day = days.includes(today) ? today : today > days[days.length - 1] ? days[days.length - 1] : days[0];
   list.innerHTML = '';
 
   const tabs = document.createElement('div');
@@ -374,6 +382,7 @@ function renderAgenda(list = $('agenda-list')) {
     const b = e.target.closest('button');
     if (!b) return;
     list.dataset.day = b.dataset.day;
+    list.dataset.picked = '1';
     buzz(8);
     renderAgenda(list);
   });
@@ -715,7 +724,9 @@ async function submitCompletion() {
     if (!snap) state.pending.add(taskId);
 
     let synced = false;
+    inFlight.add(item.key);
     try { synced = await sendPhoto(item, 25000); } catch (e) { console.warn('queued', e); }
+    finally { inFlight.delete(item.key); }
 
     state.uploading = false;
     closeSheet();
@@ -790,11 +801,13 @@ function markSynced(item) {
 }
 
 let flushing = false;
+const inFlight = new Set(); // queue keys the sheet is sending right now; flushQueue must not send them twice
 async function flushQueue() {
   if (!db || flushing) return;
   flushing = true;
   try {
     for (const item of await qAll()) {
+      if (inFlight.has(item.key)) continue;
       try {
         if (item.stage === 'photo') {
           await sendPhoto(item);
@@ -976,7 +989,8 @@ function createFeed(list, { root = list, pill, countEl, table = 'completions', c
     if (feed.cursor) q = q.lt('created_at', feed.cursor);
     const { data, error } = await q;
     feed.loading = false;
-    if (error || !data) { showSkeleton(false); return; }
+    // Flaky network: the sentinel is already visible so the observer won't fire again, retry by hand
+    if (error || !data) { setTimeout(loadPage, 4000); return; }
 
     showSkeleton(false);
     data.forEach(item => {
@@ -1059,6 +1073,8 @@ function createFeed(list, { root = list, pill, countEl, table = 'completions', c
     // Realtime drops events under bursts, so this pulls everything newer than what we have
     async catchUp() {
       if (!db || !feed.started || feed.loading) return;
+      if (!feed.newest && !feed.finished) return loadPage(); // first page never arrived
+      this.prune();
       let q = db.from(table)
         .select(columns)
         .order('created_at', { ascending: true })
@@ -1066,6 +1082,15 @@ function createFeed(list, { root = list, pill, countEl, table = 'completions', c
       if (feed.newest) q = q.gt('created_at', feed.newest);
       const { data } = await q;
       data?.forEach(item => this.onInsert(item));
+    },
+    // Deletes missed by realtime (locked phone, dropped socket) would otherwise stay up for hours
+    async prune() {
+      const shown = [...list.querySelectorAll('.feed-card[data-id]')].slice(0, 150).map(el => el.dataset.id);
+      if (!shown.length) return;
+      const { data, error } = await db.from(table).select('id').in('id', shown);
+      if (error || !data) return;
+      const alive = new Set(data.map(r => r.id));
+      shown.filter(id => !alive.has(id)).forEach(id => this.onDelete(id));
     },
     onDelete(id) {
       feed.ids.delete(id);
@@ -1086,7 +1111,7 @@ function feedCard(item) {
       <img src="${safe(item.photo_url)}" alt="" loading="lazy" decoding="async">
     </div>
     <div class="feed-meta">
-      <div class="feed-who"><b>${safe(item.player_name)}</b><time>${timeAgo(item.created_at)}</time></div>
+      <div class="feed-who"><b>${safe(item.player_name)}</b><time data-t="${safe(item.created_at)}">${timeAgo(item.created_at)}</time></div>
       <div class="feed-task">${task ? `<span class="pts-badge sm">+${task.points}</span>` : ''}<span>${safe(task?.text ?? '')}</span></div>
     </div>`;
   const img = card.querySelector('img');
@@ -1107,7 +1132,7 @@ function snapCard(item) {
       <img src="${safe(item.photo_url)}" alt="" loading="lazy" decoding="async">
     </div>
     <div class="feed-meta">
-      <div class="feed-who"><b>${safe(item.player_name)}</b><time>${timeAgo(item.created_at)}</time></div>
+      <div class="feed-who"><b>${safe(item.player_name)}</b><time data-t="${safe(item.created_at)}">${timeAgo(item.created_at)}</time></div>
       ${item.caption ? `<div class="feed-task"><span>${safe(item.caption)}</span></div>` : ''}
     </div>`;
   const img = card.querySelector('img');
@@ -1167,6 +1192,12 @@ async function catchUpComments() {
     : db.from('comments').select(COMMENT_COLUMNS).order('created_at', { ascending: false }).limit(200);
   const { data } = await q;
   data?.forEach(addComment);
+  const shown = [...document.querySelectorAll('.cmt-list li[data-cid]')].slice(0, 200).map(li => li.dataset.cid);
+  if (!shown.length) return;
+  const { data: alive } = await db.from('comments').select('id').in('id', shown);
+  if (!alive) return;
+  const ok = new Set(alive.map(r => r.id));
+  shown.filter(id => !ok.has(id)).forEach(removeComment);
 }
 
 function attachComments(card, key) {
@@ -1204,7 +1235,7 @@ function renderThread(key, only) {
     box.classList.toggle('open', open);
     box.querySelector('.cmt-list').innerHTML = shown.map(c => `
       <li data-cid="${c.id}"><b>${safe(c.player_name)}</b> <span>${safe(c.body)}</span>
-        <time>${timeAgo(c.created_at)}</time>${state.orgaPw ? `<button class="cmt-del" data-id="${c.id}" aria-label="Delete">🗑</button>` : ''}</li>`).join('');
+        <time data-t="${safe(c.created_at)}">${timeAgo(c.created_at)}</time>${state.orgaPw ? `<button class="cmt-del" data-id="${c.id}" aria-label="Delete">🗑</button>` : ''}</li>`).join('');
     box.querySelector('.cmt-toggle').textContent = list.length > shown.length ? `View all ${list.length} comments` : '💬 Add a comment';
   });
 }
@@ -1366,6 +1397,10 @@ function safe(str) {
   if (str == null) return '';
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+// "just now" must not stick for hours on the beamer
+const refreshTimes = () => document.querySelectorAll('time[data-t]').forEach(t => { t.textContent = timeAgo(t.dataset.t); });
+setInterval(() => { if (document.visibilityState === 'visible') refreshTimes(); }, 60000);
 
 function timeAgo(iso) {
   const s = Math.floor((Date.now() - new Date(iso)) / 1000);
