@@ -224,3 +224,42 @@ insert into tasks (id, text, points, sort, category) values
   ('iceye_defense', 'At ICEYE, ask the defense question nobody else dares to ask, and get a real answer', 5, 26, 'special'),
   ('real_offer',    'Leave Berlin with a real offer: job, internship or investor intro from someone you met on the tour (screenshot counts)', 10, 27, 'special')
 on conflict (id) do update set text = excluded.text, points = excluded.points, category = excluded.category;
+
+-- Rebalance to exactly 100 points (27 tasks)
+insert into tasks (id, text, points, sort, category) values
+  ('iceye_defense', 'At ICEYE, ask the defense question nobody else dares to ask, and get a real answer', 6, 26, 'special'),
+  ('real_offer',    'Leave Berlin with a real offer: job, internship or investor intro from someone you met on the tour (screenshot counts)', 10, 27, 'special')
+on conflict (id) do nothing;
+
+update tasks set text = 'Buy a drink (any kind) for someone who isn''t your friend yet' where id = 'drink';
+update tasks set text = 'Start a conga line (Polonaise) with at least 5 strangers in the Lokschuppen queue' where id = 'queue_conga';
+
+update tasks t set points = v.points from (values
+  ('real_offer', 10),
+  ('fake_founder', 6),
+  ('iceye_defense', 6),
+  ('shoutout', 6),
+  ('dj_selfie', 6),
+  ('last_standing', 4),
+  ('queue_conga', 4),
+  ('shot', 2),
+  ('makeup', 2),
+  ('drinking_game', 5),
+  ('team_logo', 5),
+  ('team_founder', 4),
+  ('team_costume', 3),
+  ('pitch_15', 6),
+  ('good_question', 4),
+  ('merch', 4),
+  ('series_a', 4),
+  ('coffee_munich', 3),
+  ('linkedin_10', 2),
+  ('on_time', 2),
+  ('visit_photos', 2),
+  ('reonic_question', 2),
+  ('talk_10', 2),
+  ('pitch_friend', 2),
+  ('pitch_mm', 2),
+  ('reonic_fact', 1),
+  ('drink', 1)
+) as v(id, points) where t.id = v.id;
