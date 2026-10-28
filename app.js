@@ -535,7 +535,7 @@ function renderTasks() {
     const card = document.createElement('li');
     card.className = 'random-card';
     card.innerHTML = `<span class="sec-icon">${catIcon(RANDOM_CAT)}</span>
-      <span class="sec-text"><b>Share a random moment</b><small>No points, as many as you like. Shows up in Feed → Random.</small></span>
+      <span class="sec-text"><b>Share a random moment</b></span>
       <span class="task-cta"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>`;
     card.addEventListener('click', () => openSheet(SNAP));
     list.appendChild(card);
