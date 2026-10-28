@@ -609,9 +609,11 @@ body.display-mode { max-width: none; }
 .cat-team    { --cat: #8B7CFF;     --cat-soft: rgba(139, 124, 255, .15); }
 .cat-club    { --cat: #FF4FA3;     --cat-soft: rgba(255, 79, 163, .15); }
 .cat-special { --cat: var(--hot);  --cat-soft: rgba(255, 90, 54, .16); }
-.task.cat-team .pts-badge, .task.cat-club .pts-badge, .task.cat-special .pts-badge { background: var(--cat-soft); color: var(--cat); }
+.cat-spicy   { --cat: #FF2D55;     --cat-soft: rgba(255, 45, 85, .16); }
+.task.cat-team .pts-badge, .task.cat-club .pts-badge, .task.cat-special .pts-badge, .task.cat-spicy .pts-badge { background: var(--cat-soft); color: var(--cat); }
 .task.done .pts-badge { background: var(--surface-2); color: var(--muted); }
 .task.cat-special:not(.done) { border-color: rgba(255, 90, 54, .35); }
+.task.cat-spicy:not(.done)   { border-color: rgba(255, 45, 85, .35); }
 
 /* Compact header stack on small phones */
 .howto { display: flex; align-items: flex-start; gap: 8px; padding: 12px 8px 12px 16px; }

@@ -480,3 +480,13 @@ on conflict (id) do update set text = excluded.text, points = excluded.points, s
 
 -- Kickoff moved to 13:00 (28 Oct)
 update config set kickoff_at = '2026-10-29 13:00 Europe/Berlin' where id = 1;
+
+-- New category "spicy" + three spicy club challenges
+alter table tasks drop constraint if exists tasks_category_check;
+alter table tasks add constraint tasks_category_check check (category in ('tour', 'team', 'club', 'special', 'spicy'));
+insert into tasks (id, text, points, sort, category) values
+  ('make_out',       'Make out with someone at the club',  15, 200, 'spicy'),
+  ('body_shot_club', 'Do a body shot at the club',          4, 201, 'spicy'),
+  ('body_shot_mm',   'Do a body shot with someone from MM', 3, 202, 'spicy')
+on conflict (id) do update set text = excluded.text, points = excluded.points, sort = excluded.sort, category = excluded.category;
+select count(*) as tasks, sum(points) as max_points from tasks;

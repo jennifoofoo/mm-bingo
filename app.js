@@ -500,7 +500,9 @@ const CATEGORIES = [
     icon: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0112 0M16 5a3 3 0 010 6M21 20a6 6 0 00-4-5.6"/>' },
   { id: 'club',    label: 'Club',    sub: 'Lokschuppen, bars and the night',
     icon: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>' },
-  { id: 'special', label: 'Special', sub: 'Spicy. Big points.',
+  { id: 'spicy',   label: 'Spicy',   sub: 'Only if you want to. Big points.',
+    icon: '<path d="M12 20.5s-7.5-4.6-9.3-9.2A4.9 4.9 0 0112 7.2a4.9 4.9 0 019.3 4.1c-1.8 4.6-9.3 9.2-9.3 9.2z"/>' },
+  { id: 'special', label: 'Special', sub: 'Big points.',
     icon: '<path d="M12 22c4 0 7-2.7 7-7 0-4-3-6.5-4-10-2.5 1.5-4 4-4 6.5C9.5 10 8.5 9 8 7.5 6 9.5 5 12 5 15c0 4.3 3 7 7 7z"/>' },
 ];
 const RANDOM_CAT = { id: 'random', label: 'Random', sub: '',
