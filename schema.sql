@@ -225,10 +225,11 @@ insert into tasks (id, text, points, sort, category) values
   ('real_offer',    'Leave Berlin with a real offer: job, internship or investor intro from someone you met on the tour (screenshot counts)', 10, 27, 'special')
 on conflict (id) do update set text = excluded.text, points = excluded.points, category = excluded.category;
 
--- Rebalance to exactly 100 points (27 tasks)
+-- Rebalance to exactly 100 points (28 tasks)
 insert into tasks (id, text, points, sort, category) values
   ('iceye_defense', 'At ICEYE, ask the defense question nobody else dares to ask, and get a real answer', 6, 26, 'special'),
-  ('real_offer',    'Leave Berlin with a real offer: job, internship or investor intro from someone you met on the tour (screenshot counts)', 10, 27, 'special')
+  ('real_offer',    'Leave Berlin with a real offer: job, internship or investor intro from someone you met on the tour (screenshot counts)', 10, 27, 'special'),
+  ('win_drinking',  'Win a drinking game against someone outside MM', 3, 28, 'club')
 on conflict (id) do nothing;
 
 update tasks set text = 'Buy a drink (any kind) for someone who isn''t your friend yet' where id = 'drink';
@@ -242,6 +243,7 @@ update tasks t set points = v.points from (values
   ('dj_selfie', 6),
   ('last_standing', 4),
   ('queue_conga', 4),
+  ('win_drinking', 3),
   ('shot', 2),
   ('makeup', 2),
   ('drinking_game', 5),
@@ -253,9 +255,9 @@ update tasks t set points = v.points from (values
   ('merch', 4),
   ('series_a', 4),
   ('coffee_munich', 3),
-  ('linkedin_10', 2),
-  ('on_time', 2),
-  ('visit_photos', 2),
+  ('linkedin_10', 1),
+  ('on_time', 1),
+  ('visit_photos', 1),
   ('reonic_question', 2),
   ('talk_10', 2),
   ('pitch_friend', 2),
