@@ -105,6 +105,7 @@ async function init() {
     if (document.visibilityState !== 'visible' || !db) return;
     subscribe();                 // sockets often die while the phone is locked
     refreshLeaderboard();
+    (displayFeed ?? phoneFeed).catchUp();
     if (state.player) syncMyCompletions();
   });
 }
@@ -258,7 +259,11 @@ function enterApp() {
   syncMyCompletions();
   refreshLeaderboard();
   clearInterval(lbPollTimer);
-  lbPollTimer = setInterval(() => { if (document.visibilityState === 'visible') refreshLeaderboard(); }, LB_POLL_MS);
+  lbPollTimer = setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    refreshLeaderboard();
+    phoneFeed.catchUp();
+  }, LB_POLL_MS);
 }
 
 document.querySelectorAll('.tab').forEach(tab => {
@@ -617,7 +622,7 @@ function fireworks(ms) {
 
 function scheduleLeaderboardRefresh() {
   clearTimeout(lbTimer);
-  lbTimer = setTimeout(refreshLeaderboard, 800);
+  lbTimer = setTimeout(() => { refreshLeaderboard(); (displayFeed ?? phoneFeed).catchUp(); }, 800);
 }
 
 async function refreshLeaderboard() {
@@ -689,7 +694,7 @@ function renderLeaderboard(list, rows) {
 // ═══════════════════════════════════════════════
 
 function createFeed(list, { root = list, pill, countEl } = {}) {
-  const feed = { started: false, cursor: null, loading: false, finished: false, ids: new Set(), pending: [] };
+  const feed = { started: false, cursor: null, newest: null, loading: false, finished: false, ids: new Set(), pending: [] };
 
   const sentinel = document.createElement('div');
   sentinel.className = 'feed-sentinel';
@@ -717,6 +722,7 @@ function createFeed(list, { root = list, pill, countEl } = {}) {
       list.insertBefore(feedCard(item), sentinel);
     });
     if (data.length) feed.cursor = data[data.length - 1].created_at;
+    if (data.length && (!feed.newest || data[0].created_at > feed.newest)) feed.newest = data[0].created_at;
     if (data.length < FEED_PAGE) {
       feed.finished = true;
       sentinel.classList.add('end');
@@ -777,12 +783,25 @@ function createFeed(list, { root = list, pill, countEl } = {}) {
     },
     onInsert(item) {
       if (!feed.started) return false;
+      if (feed.ids.has(item.id) || feed.pending.some(p => p.id === item.id)) return true;
+      if (!feed.newest || item.created_at > feed.newest) feed.newest = item.created_at;
       // Only add on top when the user is at the top, otherwise the scroll position would jump
       if (root.scrollTop < 40) { prepend(item); return true; }
       feed.pending.push(item);
       if (countEl) countEl.textContent = feed.pending.length;
       pill?.classList.add('show');
       return true;
+    },
+    // Realtime drops events under bursts, so this pulls everything newer than what we have
+    async catchUp() {
+      if (!db || !feed.started || feed.loading) return;
+      let q = db.from('completions')
+        .select('id, player_name, task_id, photo_url, photo_w, photo_h, created_at')
+        .order('created_at', { ascending: true })
+        .limit(50);
+      if (feed.newest) q = q.gt('created_at', feed.newest);
+      const { data } = await q;
+      data?.forEach(item => this.onInsert(item));
     },
     onDelete(id) {
       feed.ids.delete(id);
@@ -850,7 +869,7 @@ function initDisplay() {
   displayFeed.start();
   refreshLeaderboard();
   subscribe();
-  setInterval(refreshLeaderboard, LB_POLL_MS);
+  setInterval(() => { refreshLeaderboard(); displayFeed.catchUp(); }, LB_POLL_MS);
 }
 
 const fsBtn = $('fullscreen-btn');
