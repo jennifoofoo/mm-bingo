@@ -5,6 +5,13 @@
 alter index if exists completions_pkey rename to completions_mm_party_pkey;
 alter table if exists completions rename to completions_mm_party;
 
+-- ─── Config: kickoff locks tasks + check-offs until then (change here to move it) ───
+create table config (
+  id         int primary key default 1 check (id = 1),
+  kickoff_at timestamptz not null
+);
+insert into config (kickoff_at) values ('2026-10-29 15:00 Europe/Berlin');
+
 -- ─── Tasks (points can be changed live here, no redeploy needed) ───
 create table tasks (
   id     text primary key,
@@ -99,14 +106,19 @@ join tasks t on t.id = c.task_id
 group by c.player_id;
 
 -- ─── Row Level Security: open read, insert only (orga deletes via dashboard) ───
+alter table config      enable row level security;
 alter table tasks       enable row level security;
 alter table agenda      enable row level security;
 alter table completions enable row level security;
 
-create policy "read tasks"        on tasks       for select using (true);
+create policy "read config"       on config      for select using (true);
+-- Tasks stay a surprise: unreadable until kickoff
+create policy "read tasks after kickoff" on tasks for select
+  using (now() >= (select kickoff_at from config where id = 1));
 create policy "read agenda"       on agenda      for select using (true);
 create policy "read completions"  on completions for select using (true);
-create policy "insert completion" on completions for insert with check (true);
+create policy "insert completion after kickoff" on completions for insert
+  with check (now() >= (select kickoff_at from config where id = 1));
 
 grant select on leaderboard to anon, authenticated;
 

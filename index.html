@@ -27,7 +27,32 @@
         <span class="reveal accent" style="--d:3">Berlin</span>
         <span class="reveal year" style="--d:4">2026</span>
       </h1>
-      <p class="splash-sub reveal" style="--d:5"><span id="splash-task-count">15</span> challenges · <span id="splash-max-points">38</span> points · one leaderboard</p>
+
+      <div class="countdown-card reveal" style="--d:5">
+        <div class="cd-head">
+          <span class="cd-eyebrow cd-pre">Human Bingo drops in</span>
+          <span class="cd-eyebrow cd-post"><span class="live-pill">Live</span> Human Bingo is on</span>
+        </div>
+        <div class="cd-digits cd-pre">
+          <div class="cd-unit"><b data-u="d">00</b><small>days</small></div><i>:</i>
+          <div class="cd-unit"><b data-u="h">00</b><small>hrs</small></div><i>:</i>
+          <div class="cd-unit"><b data-u="m">00</b><small>min</small></div><i>:</i>
+          <div class="cd-unit"><b data-u="s">00</b><small>sec</small></div>
+        </div>
+        <div class="cd-big cd-post">It's on.</div>
+        <div id="cd-when" class="cd-when"></div>
+
+        <div class="teaser cd-pre" aria-hidden="true">
+          <div class="teaser-card"><span class="pts-badge">?</span><span class="teaser-lines"><i></i><i></i></span></div>
+          <div class="teaser-card"><span class="pts-badge">?</span><span class="teaser-lines"><i></i><i></i></span></div>
+          <div class="teaser-card"><span class="pts-badge">?</span><span class="teaser-lines"><i></i><i></i></span></div>
+          <div class="teaser-lock">
+            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+            <b>Challenges are a surprise</b>
+            <small>Points, photos, one leaderboard.</small>
+          </div>
+        </div>
+      </div>
 
       <div id="name-step" class="name-step">
         <label class="field-label" for="name-input">What do people call you?</label>
@@ -35,10 +60,15 @@
                autocomplete="given-name" autocorrect="off" autocapitalize="words" enterkeyhint="go">
       </div>
 
-      <button id="go-btn" class="go-btn reveal" style="--d:6">
-        <span>Let's fucking go</span>
+      <button id="go-btn" class="go-btn reveal" style="--d:6" disabled>
+        <span id="go-label">Let's fucking go</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
+
+      <section class="splash-agenda">
+        <h2 class="view-title">The 4 days</h2>
+        <div id="splash-agenda" class="plan"></div>
+      </section>
     </div>
     <div class="marquee" aria-hidden="true">
       <div class="marquee-track">
@@ -73,8 +103,7 @@
 
       <div id="view-agenda" class="view">
         <h2 class="view-title">Agenda</h2>
-        <div id="day-chips" class="day-chips"></div>
-        <ol id="agenda-list" class="agenda-list"></ol>
+        <div id="agenda-list" class="plan"></div>
       </div>
 
       <div id="view-feed" class="view">

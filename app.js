@@ -1,29 +1,5 @@
-// ═══════════════════════════════════════════════
-// TASKS — fallback only; the source of truth is the `tasks` table
-// ═══════════════════════════════════════════════
-
-const FALLBACK_TASKS = [
-  { id: 'pitch_15',        points: 5, text: 'Do a 60-second elevator pitch about a startup idea in front of at least 15 people' },
-  { id: 'drinking_game',   points: 4, text: 'Successfully host a (drinking) game for at least 15 people' },
-  { id: 'good_question',   points: 3, text: 'Ask a question at a visit that makes the moderator say "That\'s a good question"' },
-  { id: 'linkedin_10',     points: 3, text: 'Make 10 new LinkedIn connections with people based in Berlin' },
-  { id: 'on_time',         points: 3, text: 'Be on time for all company visits (check off at the end)' },
-  { id: 'visit_photos',    points: 3, text: 'Take at least one picture at every company visit (check off at the end)' },
-  { id: 'merch',           points: 3, text: 'Convince a random non-MM person to wear MM merch' },
-  { id: 'reonic_question', points: 2, text: 'Ask a smart question at the Reonic event' },
-  { id: 'talk_10',         points: 2, text: 'Do the 10-minute personal-talking challenge with someone' },
-  { id: 'pitch_friend',    points: 2, text: 'Pitch your MM friend to someone who isn\'t their friend yet (min. 60 sec)' },
-  { id: 'pitch_mm',        points: 2, text: 'Pitch MM to someone outside MM' },
-  { id: 'shot',            points: 2, text: 'Invite a stranger to a shot at the club' },
-  { id: 'makeup',          points: 2, text: 'Help someone who isn\'t your friend yet with their Halloween makeup' },
-  { id: 'reonic_fact',     points: 1, text: 'Research a fact about Reonic and tell someone who didn\'t know it' },
-  { id: 'drink',           points: 1, text: 'Buy a (non-alcoholic) drink for someone who isn\'t your friend yet' },
-  { id: 'series_a',        points: 3, text: 'Get the number or LinkedIn of a founder who has raised a Series A' },
-  { id: 'coffee_munich',   points: 2, text: 'Get someone at a visit to promise you a coffee in Munich' },
-  { id: 'team_logo',       points: 3, text: 'Team (3+): recreate the logo of a startup you visit with your bodies, in front of their office. Everyone in the photo checks it off' },
-  { id: 'team_founder',    points: 3, text: 'Team (3+): get a founder from a visit into your crew selfie. Everyone in the photo checks it off' },
-  { id: 'team_costume',    points: 2, text: 'Team (3+): costume group photo with at least one stranger at the party. Everyone in the photo checks it off' },
-];
+// Tasks live only in the `tasks` table and stay unreadable until kickoff (RLS), so they remain a surprise
+const DEFAULT_KICKOFF = '2026-10-29T15:00:00+01:00';
 
 // Agenda fallback; the source of truth is the `agenda` table (Berlin time, CET = +01:00)
 const FALLBACK_AGENDA = [
@@ -70,9 +46,10 @@ let lbTimer = null;
 let lbPollTimer = null;
 
 const state = {
-  tasks: FALLBACK_TASKS,
+  tasks: [],
+  kickoff: new Date(DEFAULT_KICKOFF),
+  live: false,
   agenda: FALLBACK_AGENDA,
-  agendaDay: null,
   player: null,        // { id, name }
   done: {},            // task_id -> { photo_url }
   active: null,        // task_id open in the sheet
@@ -104,7 +81,8 @@ async function init() {
     db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 
-  await Promise.all([loadTasks(), loadAgenda()]);
+  await Promise.all([loadConfig(), loadAgenda()]);
+  if (isLive()) await loadTasks();
 
   if (new URLSearchParams(location.search).get('display') === 'true') {
     document.body.classList.add('display-mode');
@@ -116,10 +94,10 @@ async function init() {
   state.player = lsGet(LS_PLAYER, null);
   state.done   = lsGet(LS_DONE, {});
 
-  if (state.player?.id) {
+  if (state.player?.id && isLive()) {
     enterApp();
   } else {
-    showScreen('splash');
+    showSplash();
   }
 
   document.addEventListener('visibilitychange', () => {
@@ -134,9 +112,26 @@ async function loadTasks() {
   if (!db) return;
   const { data } = await db.from('tasks').select('id, text, points, sort').order('sort');
   if (data?.length) state.tasks = data;
-  $('splash-task-count').textContent = state.tasks.length;
-  $('splash-max-points').textContent = maxPoints();
 }
+
+// Retry until the challenges arrive (RLS returns [] until the server clock passes kickoff)
+async function ensureTasks() {
+  for (let i = 0; i < 15 && !state.tasks.length; i++) {
+    await loadTasks();
+    if (!state.tasks.length) await new Promise(r => setTimeout(r, 2000));
+  }
+  $('score-max').textContent = maxPoints();
+  renderTasks();
+  updateScore(false);
+}
+
+async function loadConfig() {
+  if (!db) return;
+  const { data } = await db.from('config').select('kickoff_at').eq('id', 1).maybeSingle();
+  if (data?.kickoff_at) state.kickoff = new Date(data.kickoff_at);
+}
+
+const isLive = () => Date.now() >= state.kickoff.getTime();
 
 async function loadAgenda() {
   if (!db) return;
@@ -154,8 +149,68 @@ function showScreen(name) {
 
 const nameInput = $('name-input');
 const goBtn     = $('go-btn');
+let countdownTimer = null;
+
+function showSplash() {
+  showScreen('splash');
+  renderAgenda($('splash-agenda'), false);
+  const k = state.kickoff;
+  const at = state.agenda.find(a => new Date(a.starts_at).getTime() === k.getTime());
+  $('cd-when').textContent = [
+    k.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ }),
+    fmtTime(k),
+    at?.title,
+  ].filter(Boolean).join(' · ');
+  state.live = isLive();
+  setSplashLive(state.live);
+  tickCountdown();
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(tickCountdown, 1000);
+}
+
+function tickCountdown() {
+  const ms = state.kickoff.getTime() - Date.now();
+  if (ms <= 0) {
+    clearInterval(countdownTimer);
+    if (!state.live) onKickoff();
+    return;
+  }
+  const sec = Math.floor(ms / 1000);
+  setDigit('d', Math.floor(sec / 86400));
+  setDigit('h', Math.floor(sec / 3600) % 24);
+  setDigit('m', Math.floor(sec / 60) % 60);
+  setDigit('s', sec % 60);
+}
+
+function setDigit(unit, value) {
+  const el = document.querySelector(`.cd-unit b[data-u="${unit}"]`);
+  const text = String(value).padStart(2, '0');
+  if (el.textContent === text) return;
+  el.textContent = text;
+  el.classList.remove('tick');
+  void el.offsetWidth;
+  el.classList.add('tick');
+}
+
+// Fires live when the countdown hits zero while the page is open
+async function onKickoff() {
+  state.live = true;
+  setSplashLive(true);
+  fireworks(2500);
+  buzz([40, 60, 120]);
+  await loadTasks();
+}
+
+function setSplashLive(live) {
+  $('screen-splash').classList.toggle('is-live', live);
+  goBtn.disabled = !live;
+  $('go-label').textContent = live
+    ? "Let's fucking go"
+    : `🔒 Unlocks ${state.kickoff.toLocaleDateString('en-GB', { weekday: 'short', timeZone: TZ })} ${fmtTime(state.kickoff)}`;
+}
 
 goBtn.addEventListener('click', () => {
+  if (!isLive()) return;
   const step = $('name-step');
   if (!step.classList.contains('open')) {
     step.classList.add('open');
@@ -170,6 +225,7 @@ nameInput.addEventListener('input', () => { goBtn.disabled = !nameInput.value.tr
 nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') startPlaying(); });
 
 function startPlaying() {
+  if (!isLive()) return;
   const name = nameInput.value.trim().slice(0, 40);
   if (!name) return;
   state.player = { id: crypto.randomUUID?.() ?? uuidFallback(), name };
@@ -186,10 +242,12 @@ function startPlaying() {
 
 function enterApp() {
   showScreen('app');
+  clearInterval(countdownTimer);
   $('player-name').textContent = state.player.name;
   $('score-max').textContent = maxPoints();
   renderTasks();
   updateScore(false);
+  if (!state.tasks.length) ensureTasks();
   renderAgenda();
   renderNowCard();
   setInterval(() => { renderNowCard(); if ($('view-agenda').classList.contains('active')) renderAgenda(); }, 60000);
@@ -234,50 +292,43 @@ function agendaItems() {
   });
 }
 
-function renderAgenda() {
+// Simple plan: all days stacked, one row per slot, parallel options joined with "or"
+function renderAgenda(list = $('agenda-list'), scrollToToday = true) {
   const items = agendaItems();
-  const days = [...new Set(items.map(i => i.day))];
   const today = dayKey(new Date());
-  if (!state.agendaDay || !days.includes(state.agendaDay)) {
-    state.agendaDay = days.includes(today) ? today : (days.find(d => d > today) ?? days[0]);
-  }
-
-  const chips = $('day-chips');
-  chips.innerHTML = '';
-  days.forEach(day => {
-    const d = new Date(day + 'T12:00:00');
-    const b = document.createElement('button');
-    b.className = 'day-chip' + (day === state.agendaDay ? ' active' : '') + (day === today ? ' today' : '');
-    b.innerHTML = `<small>${d.toLocaleDateString('en-GB', { weekday: 'short' })}</small><b>${d.getDate()}</b>`;
-    b.addEventListener('click', () => { state.agendaDay = day; renderAgenda(); buzz(8); });
-    chips.appendChild(b);
-  });
-
   const now = Date.now();
-  const list = $('agenda-list');
   list.innerHTML = '';
-  // Entries with the same start time are parallel options → render as one "pick one" group
-  const groups = [];
-  items.filter(i => i.day === state.agendaDay).forEach(i => {
-    const last = groups[groups.length - 1];
-    if (last && last[0].starts_at === i.starts_at) last.push(i); else groups.push([i]);
+
+  [...new Set(items.map(i => i.day))].forEach(day => {
+    const d = new Date(day + 'T12:00:00');
+    const section = document.createElement('section');
+    section.className = 'plan-day' + (day === today ? ' today' : '') + (day < today ? ' past' : '');
+    section.innerHTML = `<h3>${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}${day === today ? '<span>Today</span>' : ''}</h3>`;
+
+    const slots = [];
+    items.filter(i => i.day === day).forEach(i => {
+      const last = slots[slots.length - 1];
+      if (last && last[0].starts_at === i.starts_at) last.push(i); else slots.push([i]);
+    });
+
+    slots.forEach(slot => {
+      const first = slot[0];
+      const status = now >= first.end.getTime() ? 'past' : now >= first.start.getTime() ? 'live' : '';
+      const note = slot.length > 1 ? 'Pick one' : first.note;
+      const row = document.createElement('div');
+      row.className = `plan-row ${status}`;
+      row.innerHTML = `
+        <time>${fmtTime(first.start)}</time>
+        <div>
+          <div class="plan-title">${slot.map(i => safe(i.title)).join(' <i>or</i> ')}${status === 'live' ? ' <span class="live-pill">Now</span>' : ''}</div>
+          ${note || first.ends_at ? `<div class="plan-sub">${[note && safe(note), first.ends_at && `until ${fmtTime(first.end)}`].filter(Boolean).join(' · ')}</div>` : ''}
+        </div>`;
+      section.appendChild(row);
+    });
+    list.appendChild(section);
   });
 
-  groups.forEach((group, gi) => {
-    const first = group[0];
-    const status = now >= first.end.getTime() ? 'past' : now >= first.start.getTime() ? 'live' : 'upcoming';
-    const li = document.createElement('li');
-    li.className = `agenda-item ${status}`;
-    li.style.setProperty('--i', gi);
-    const time = `${fmtTime(first.start)}${first.ends_at ? `<span>${fmtTime(first.end)}</span>` : ''}`;
-    const body = group.length === 1
-      ? `<div class="agenda-title">${safe(first.title)}</div>${first.note ? `<div class="agenda-note">${safe(first.note)}</div>` : ''}`
-      : `<div class="agenda-pick">Pick one</div><div class="agenda-options">${group.map(g => `<div class="agenda-option">${safe(g.title)}</div>`).join('')}</div>`;
-    li.innerHTML = `<div class="agenda-time">${time}</div><div class="agenda-body">${status === 'live' ? '<span class="live-pill">Now</span>' : ''}${body}</div>`;
-    list.appendChild(li);
-  });
-
-  list.querySelector('.live')?.scrollIntoView({ block: 'center', behavior: 'instant' });
+  if (scrollToToday) list.querySelector('.plan-day.today')?.scrollIntoView({ block: 'start', behavior: 'instant' });
 }
 
 function renderNowCard() {
@@ -335,6 +386,10 @@ async function syncMyCompletions() {
 function renderTasks() {
   const list = $('task-list');
   list.innerHTML = '';
+  if (!state.tasks.length) {
+    list.innerHTML = '<li class="task-loading"><div class="spinner"></div>Loading challenges…</li>';
+    return;
+  }
   // Open tasks first (highest points on top), done ones sink to the bottom
   const sorted = [...state.tasks].sort((a, b) =>
     (!!state.done[a.id] - !!state.done[b.id]) || (b.points - a.points));
