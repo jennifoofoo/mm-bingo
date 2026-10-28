@@ -411,7 +411,7 @@ function renderAgenda(list = $('agenda-list')) {
         <div>
           <div class="plan-title">${slot.map(i => safe(i.title)).join(' <i>or</i> ')}${status === 'live' ? ' <span class="live-pill">Now</span>' : ''}</div>
           ${note || first.ends_at ? `<div class="plan-sub">${[note && safe(note), first.ends_at && `until ${fmtTime(first.end)}`].filter(Boolean).join(' · ')}</div>` : ''}
-          ${slot.filter(i => i.info || i.address).map(i => planInfo(i, slot.length > 1)).join('')}
+          ${slot.filter(i => i.info || i.address || i.websites?.length).map(i => planInfo(i, slot.length > 1)).join('')}
         </div>`;
       section.appendChild(row);
     });
@@ -420,11 +420,16 @@ function renderAgenda(list = $('agenda-list')) {
 }
 
 // What the visit is about + where it is, so everyone knows what's going on
+const siteName = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
+
 function planInfo(item, labelled) {
   const maps = item.address && `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.address)}`;
+  const sites = (item.websites ?? []).filter(u => /^https:\/\//.test(u) && siteName(u));
   return `<div class="plan-info">
     ${item.info ? `<p>${labelled ? `<b>${safe(item.title)}:</b> ` : ''}${safe(item.info)}</p>` : ''}
     ${item.tags?.length ? `<div class="plan-tags">${item.tags.map(t => `<span>${safe(t)}</span>`).join('')}</div>` : ''}
+    ${sites.length ? `<div class="plan-sites">${sites.map(u => `<a href="${safe(u)}" target="_blank" rel="noopener">${safe(siteName(u))} ↗</a>`).join('')}</div>
+      <p class="plan-prep">Prep: 2 min on their site, bring 1 question → <b>+1 point</b></p>` : ''}
     ${maps ? `<a class="plan-addr" href="${maps}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 10-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>${safe(item.address)}</a>` : ''}
   </div>`;
 }

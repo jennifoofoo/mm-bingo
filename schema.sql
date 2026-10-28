@@ -449,3 +449,31 @@ begin
 end $$;
 drop trigger if exists snap_limit on snaps;
 create trigger snap_limit before insert on snaps for each row execute function check_snap_limit();
+
+-- Visit websites in the agenda + one "do your homework" challenge per visit (1 point each)
+alter table agenda add column if not exists websites text[];
+update agenda set websites = array['https://www.speedinvest.com'] where title = 'Speedinvest visit';
+update agenda set websites = array['https://www.telli.com'],
+  info = 'Berlin AI startup: AI agents that handle customer conversations for companies.' where title = 'Telli visit';
+update agenda set websites = array['https://reonic.com'] where title = 'Reonic visit + dinner & drinks';
+update agenda set websites = array['https://knowunity.com'],
+  info = 'Learning app and daily AI companion for school, used by millions of students.' where title = 'Knowunity visit';
+update agenda set websites = array['https://planet-a.com'] where title = 'Option A: Lunch at Planet A';
+update agenda set websites = array['https://www.merantix.com'] where title = 'Option B: Merantix AI (VC)';
+update agenda set websites = array['https://www.iceye.com', 'https://www.live-eo.com', 'https://www.reflexaerospace.com']
+  where title = 'ICEYE + LiveEO + Reflex Aerospace';
+update agenda set websites = array['https://www.lucidcap.co', 'https://gozauber.com'],
+  info = 'Lucid Capital: Berlin VC that backs AI founders at the very start (€36m inception fund). Zauber: AI agents for sea & air freight.'
+  where title = 'Zauber x Lucid Capital visit + dinner & drinks';
+
+-- The old Reonic question task becomes the Reonic homework task (same id, so nothing breaks)
+update tasks set text = 'Reonic: check their website before the visit and ask them one question you prepared', points = 1, sort = 102
+  where id = 'reonic_question';
+insert into tasks (id, text, points, sort, category) values
+  ('prep_speedinvest', 'Speedinvest: check their website before the visit and ask them one question you prepared', 1, 100, 'tour'),
+  ('prep_telli',       'Telli: check their website before the visit and ask them one question you prepared',       1, 101, 'tour'),
+  ('prep_knowunity',   'Knowunity: check their website before the visit and ask them one question you prepared',   1, 103, 'tour'),
+  ('prep_lunch',       'Friday lunch (Planet A or Merantix): check their website before and ask them one question you prepared', 1, 104, 'tour'),
+  ('prep_space',       'ICEYE / LiveEO / Reflex: check a website before the visit and ask them one question you prepared', 1, 105, 'tour'),
+  ('prep_lucid',       'Zauber x Lucid: check a website before the visit and ask them one question you prepared',  1, 106, 'tour')
+on conflict (id) do update set text = excluded.text, points = excluded.points, sort = excluded.sort, category = excluded.category;

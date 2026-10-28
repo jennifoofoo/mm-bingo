@@ -733,3 +733,9 @@ body.display-mode { max-width: none; }
 .day-tabs small { font-size: 11px; font-weight: 600; }
 .day-tabs button.active { background: var(--surface-2); color: var(--text); border-color: var(--teal); }
 .day-tabs button.today b::after { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); margin-left: 5px; vertical-align: 2px; }
+
+/* Visit websites + prep hint (one prepared question = +1 point) */
+.plan-sites { display: flex; flex-wrap: wrap; gap: 6px; }
+.plan-sites a { font-size: 13px; font-weight: 600; color: var(--teal); text-decoration: none; padding: 5px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.plan-prep { font-size: 12.5px !important; color: var(--muted) !important; }
+.plan-prep b { color: var(--gold) !important; }
