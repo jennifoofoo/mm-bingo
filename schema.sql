@@ -159,3 +159,15 @@ create policy "upload tour photos" on storage.objects
   );
 create policy "read tour photos" on storage.objects
   for select to anon, authenticated using (bucket_id = 'bingo-photos');
+
+-- Originals for printing: private bucket, players can upload but nobody can browse it publicly
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('bingo-originals', 'bingo-originals', false, 31457280,
+        array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+on conflict (id) do nothing;
+
+create policy "upload originals" on storage.objects
+  for insert to anon, authenticated with check (
+    bucket_id = 'bingo-originals'
+    and (storage.foldername(name))[1] ~ '^[0-9a-f-]{36}$'
+  );

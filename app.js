@@ -30,6 +30,7 @@ const FALLBACK_AGENDA = [
 ].map(([s, e, title, note]) => ({ starts_at: s + '+01:00', ends_at: e && e + '+01:00', title, note }));
 
 const BUCKET       = 'bingo-photos';
+const ORIGINALS_BUCKET = 'bingo-originals';
 const FEED_PAGE    = 10;
 const LB_POLL_MS   = 20000;
 const LS_PLAYER    = 'bt-player';
@@ -480,6 +481,7 @@ $('submit-btn').addEventListener('click', async () => {
 async function submitCompletion() {
   if (!db) { showToast('Not connected. Try again in a sec.'); return; }
   const taskId = state.active;
+  const original = state.file;
   const task = taskById(taskId);
   state.uploading = true;
   showLoading('Uploading...');
@@ -502,6 +504,7 @@ async function submitCompletion() {
     if (error && error.code !== '23505') throw error;
 
     state.done[taskId] = { photo_url: photo.url };
+    uploadOriginal(original, taskId); // fire and forget, the player never waits for it
     lsSet(LS_DONE, state.done);
     state.uploading = false;
     closeSheet();
@@ -516,6 +519,27 @@ async function submitCompletion() {
     state.uploading = false;
     hideLoading();
     window.removeEventListener('beforeunload', onUnload);
+  }
+}
+
+// Full-resolution copy for printing, in a private bucket (insert-only, not publicly readable)
+let originalsPending = 0;
+const guardOriginals = e => { e.preventDefault(); e.returnValue = ''; };
+
+async function uploadOriginal(file, taskId, attempts = 4) {
+  if (!db || !file) return;
+  if (originalsPending++ === 0) window.addEventListener('beforeunload', guardOriginals);
+  const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+  const path = `${state.player.id}/${taskId}-${Date.now()}.${ext}`;
+  try {
+    for (let i = 0; i < attempts; i++) {
+      const { error } = await db.storage.from(ORIGINALS_BUCKET).upload(path, file, { contentType: file.type || 'image/jpeg' });
+      if (!error) return;
+      if (i === attempts - 1) console.error('original upload failed', error);
+      else await new Promise(r => setTimeout(r, 2000 * (i + 1)));
+    }
+  } finally {
+    if (--originalsPending === 0) window.removeEventListener('beforeunload', guardOriginals);
   }
 }
 
