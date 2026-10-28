@@ -1168,7 +1168,7 @@ $('lightbox').addEventListener('click', () => $('lightbox').classList.remove('op
 const STARTUPS = [
   ['speedinvest.svg', 'Speedinvest', 19], ['telli.svg', 'telli', 23], ['reonic.svg', 'Reonic', 22],
   ['knowunity.png', 'Knowunity', 24], ['planet-a.svg', 'Planet A', 24], ['iceye.png', 'ICEYE', 17],
-  ['liveeo.svg', 'LiveEO', 22], ['reflex.png', 'Reflex Aerospace', 26], ['lucid.png', 'Lucid', 26],
+  ['liveeo.svg', 'LiveEO', 22], ['reflex.png?v=2', 'Reflex Aerospace', 28], ['lucid.png', 'Lucid', 26],
   [null, 'Zauber'],
 ];
 
