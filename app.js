@@ -1161,6 +1161,27 @@ function openLightbox(url) {
 $('lightbox').addEventListener('click', () => $('lightbox').classList.remove('open'));
 
 // ═══════════════════════════════════════════════
+// STARTUP LOGO MARQUEE
+// ═══════════════════════════════════════════════
+
+// Heights are tuned per logo so they look optically the same size
+const STARTUPS = [
+  ['speedinvest.svg', 'Speedinvest', 19], ['telli.svg', 'telli', 23], ['reonic.svg', 'Reonic', 22],
+  ['knowunity.png', 'Knowunity', 24], ['planet-a.svg', 'Planet A', 24], ['iceye.png', 'ICEYE', 17],
+  ['liveeo.svg', 'LiveEO', 22], ['reflex.png', 'Reflex Aerospace', 26], ['lucid.png', 'Lucid', 26],
+  [null, 'Zauber'],
+];
+
+function renderMarquees() {
+  const items = STARTUPS.map(([file, name, h]) => file
+    ? `<img src="logos/${file}" alt="${name}" style="height:${h}px" decoding="async">`
+    : `<span class="logo-word">—✧ ${name}</span>`).join('');
+  // Two identical halves → translateX(-50%) loops seamlessly
+  document.querySelectorAll('.marquee-track').forEach(t => { t.innerHTML = `<span>${items}</span><span>${items}</span>`; });
+}
+renderMarquees();
+
+// ═══════════════════════════════════════════════
 // GO
 // ═══════════════════════════════════════════════
 
