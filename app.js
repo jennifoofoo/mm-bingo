@@ -993,8 +993,8 @@ function fireworks(ms) {
   const colors = ['#0ABDE3', '#ffffff', '#FF5A36', '#F5C451'];
   (function frame() {
     if (Date.now() > end) return;
-    confetti({ particleCount: 6, angle: 60,  spread: 60, origin: { x: 0, y: 0.7 }, colors });
-    confetti({ particleCount: 6, angle: 120, spread: 60, origin: { x: 1, y: 0.7 }, colors });
+    confetti({ particleCount: 6, angle: 60,  spread: 60, origin: { x: 0, y: 0.7 }, colors, zIndex: 300 });
+    confetti({ particleCount: 6, angle: 120, spread: 60, origin: { x: 1, y: 0.7 }, colors, zIndex: 300 });
     requestAnimationFrame(frame);
   })();
 }
