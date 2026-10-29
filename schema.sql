@@ -519,3 +519,7 @@ begin
 end $$;
 grant execute on function orga_unlock(text) to anon, authenticated;
 select kickoff_at, countdown_at from config;
+
+-- Countdown moved to 14:45
+update config set countdown_at = '2026-10-29 14:45 Europe/Berlin' where id = 1;
+select kickoff_at, countdown_at from config;

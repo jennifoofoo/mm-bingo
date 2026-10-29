@@ -1,7 +1,7 @@
 // Tasks live only in the `tasks` table and stay unreadable until kickoff (RLS), so they remain a surprise.
 // The orga unlocks by hand (orga_unlock sets kickoff_at to now); countdown_at is only what the splash counts down to
 const DEFAULT_KICKOFF   = '2099-01-01T00:00:00+01:00';
-const DEFAULT_COUNTDOWN = '2026-10-29T14:30:00+01:00';
+const DEFAULT_COUNTDOWN = '2026-10-29T14:45:00+01:00';
 const UNLOCK_POLL_MS = 6000;
 
 // Food at the visits, shown as a loud badge in the agenda (mirrors agenda.food)
