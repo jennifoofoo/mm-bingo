@@ -235,15 +235,13 @@ function setDigit(unit, value) {
   el.classList.add('tick');
 }
 
-// Fires live when the countdown hits zero while the page is open
+// Fires when the orga unlocks while the page is open
 async function onKickoff() {
+  // Quiet unlock: only the button turns on, the confetti + prize reveal wait until people tap in
   state.live = true;
   setSplashLive(true);
-  fireworks(2500);
-  buzz([40, 60, 120]);
+  buzz(30);
   await loadTasks();
-  // Returning players go straight in (and get the prize reveal there)
-  if (state.player?.id && !state.preview && $('screen-splash').classList.contains('active')) enterApp();
 }
 
 function setSplashLive(live) {
@@ -316,6 +314,7 @@ $('unlock-btn').addEventListener('click', async () => {
 
 goBtn.addEventListener('click', () => {
   if (!isLive()) return;
+  if (state.player?.id && !state.preview) { enterApp(); return; }
   const step = $('name-step');
   if (!step.classList.contains('open')) {
     step.classList.add('open');
