@@ -778,3 +778,18 @@ body.display-mode { max-width: none; }
 
 .prize-line { margin: -6px 4px 14px; padding: 10px 14px; border-radius: 14px; background: rgba(245, 196, 81, .12); border: 1px solid rgba(245, 196, 81, .35); font-size: 14px; color: var(--text); }
 .prize-line b { color: var(--gold); }
+
+/* ── MANUAL UNLOCK (splash wait + orga switch) ─ */
+
+.cd-wait { display: none; }
+.is-waiting .cd-count { display: none !important; }
+.is-waiting .cd-wait { display: inline-flex; color: var(--gold); }
+.is-live .cd-wait { display: none !important; }
+
+.unlock-btn {
+  width: 100%; margin-bottom: 14px; padding: 16px; border-radius: 18px;
+  background: var(--gold); color: #1A1300; font-family: var(--display); font-weight: 800; font-size: 17px;
+}
+.unlock-btn[hidden] { display: none; }
+.unlock-btn.armed { background: var(--hot); color: #fff; animation: bump .5s; }
+.unlock-btn:disabled { opacity: .6; }

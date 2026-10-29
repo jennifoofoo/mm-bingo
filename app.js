@@ -1,5 +1,8 @@
-// Tasks live only in the `tasks` table and stay unreadable until kickoff (RLS), so they remain a surprise
-const DEFAULT_KICKOFF = '2026-10-29T13:00:00+01:00';
+// Tasks live only in the `tasks` table and stay unreadable until kickoff (RLS), so they remain a surprise.
+// The orga unlocks by hand (orga_unlock sets kickoff_at to now); countdown_at is only what the splash counts down to
+const DEFAULT_KICKOFF   = '2099-01-01T00:00:00+01:00';
+const DEFAULT_COUNTDOWN = '2026-10-29T14:30:00+01:00';
+const UNLOCK_POLL_MS = 6000;
 
 // Food at the visits, shown as a loud badge in the agenda (mirrors agenda.food)
 const FALLBACK_FOOD = {
@@ -61,6 +64,7 @@ let agendaTimer = null;
 const state = {
   tasks: [],
   kickoff: new Date(DEFAULT_KICKOFF),
+  countdown: new Date(DEFAULT_COUNTDOWN),
   live: false,
   agenda: FALLBACK_AGENDA,
   player: null,        // { id, name }
@@ -148,8 +152,9 @@ async function ensureTasks() {
 
 async function loadConfig() {
   if (!db) return;
-  const { data } = await db.from('config').select('kickoff_at').eq('id', 1).maybeSingle();
+  const { data } = await db.from('config').select('kickoff_at, countdown_at').eq('id', 1).maybeSingle();
   if (data?.kickoff_at) state.kickoff = new Date(data.kickoff_at);
+  if (data?.countdown_at) state.countdown = new Date(data.countdown_at);
 }
 
 const isLive = () => Date.now() >= state.kickoff.getTime();
@@ -171,11 +176,12 @@ function showScreen(name) {
 const nameInput = $('name-input');
 const goBtn     = $('go-btn');
 let countdownTimer = null;
+let unlockTimer = null;
 
 function showSplash() {
   showScreen('splash');
   renderAgenda($('splash-agenda'), false);
-  const k = state.kickoff;
+  const k = state.countdown;
   const at = state.agenda.find(a => new Date(a.starts_at).getTime() === k.getTime());
   $('cd-when').textContent = [
     k.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ }),
@@ -187,14 +193,30 @@ function showSplash() {
   tickCountdown();
   clearInterval(countdownTimer);
   countdownTimer = setInterval(tickCountdown, 1000);
+  clearInterval(unlockTimer);
+  if (!state.live) unlockTimer = setInterval(checkUnlock, UNLOCK_POLL_MS);
+}
+
+// Watch for the orga's unlock while the splash is open
+async function checkUnlock() {
+  if (document.visibilityState !== 'visible') return;
+  await withTimeout(loadConfig(), 5000).catch(() => {});
+  if (isLive()) tickCountdown();
 }
 
 function tickCountdown() {
-  const ms = state.kickoff.getTime() - Date.now();
-  if (ms <= 0) {
+  if (isLive()) {
     clearInterval(countdownTimer);
+    clearInterval(unlockTimer);
     if (!state.live) onKickoff();
     return;
+  }
+  // Countdown over but not unlocked yet: hold at zero until the orga flips the switch
+  const ms = Math.max(0, state.countdown.getTime() - Date.now());
+  const waiting = ms === 0;
+  if ($('screen-splash').classList.contains('is-waiting') !== waiting) {
+    $('screen-splash').classList.toggle('is-waiting', waiting);
+    setSplashLive(false);
   }
   const sec = Math.floor(ms / 1000);
   setDigit('d', Math.floor(sec / 86400));
@@ -220,14 +242,19 @@ async function onKickoff() {
   fireworks(2500);
   buzz([40, 60, 120]);
   await loadTasks();
+  // Returning players go straight in (and get the prize reveal there)
+  if (state.player?.id && !state.preview && $('screen-splash').classList.contains('active')) enterApp();
 }
 
 function setSplashLive(live) {
   $('screen-splash').classList.toggle('is-live', live);
+  if (live) $('screen-splash').classList.remove('is-waiting');
   goBtn.disabled = !live;
   $('go-label').textContent = live
     ? "Let's fucking go"
-    : `Opens ${state.kickoff.toLocaleDateString('en-GB', { weekday: 'short', timeZone: TZ })} ${fmtTime(state.kickoff)}`;
+    : $('screen-splash').classList.contains('is-waiting')
+      ? 'Waiting for the orga to unlock 🔒'
+      : `Opens ${state.countdown.toLocaleDateString('en-GB', { weekday: 'short', timeZone: TZ })} ${fmtTime(state.countdown)}`;
 }
 
 // Orga preview: the password is checked inside the DB (preview_tasks), never shipped in this file
@@ -247,7 +274,44 @@ $('orga-form').addEventListener('submit', async e => {
   state.player = { id: '00000000-0000-4000-8000-000000000000', name: 'Orga' };
   state.done = {};
   $('preview-badge').hidden = false;
+  $('unlock-btn').hidden = isLive();
   enterApp();
+});
+
+// Orga switch: unlocks challenges for everyone. Second tap confirms (no native dialogs)
+let unlockArmed = null;
+$('unlock-btn').addEventListener('click', async () => {
+  const btn = $('unlock-btn');
+  if (!unlockArmed) {
+    btn.classList.add('armed');
+    btn.textContent = 'Tap again to unlock for everyone';
+    buzz(20);
+    unlockArmed = setTimeout(() => {
+      unlockArmed = null;
+      btn.classList.remove('armed');
+      btn.textContent = '🔓 Unlock everything';
+    }, 4000);
+    return;
+  }
+  clearTimeout(unlockArmed);
+  unlockArmed = null;
+  btn.disabled = true;
+  const { data, error } = await db.rpc('orga_unlock', { pw: state.orgaPw });
+  btn.disabled = false;
+  if (error || !data) {
+    btn.classList.remove('armed');
+    btn.textContent = '🔓 Unlock everything';
+    showToast('Unlock failed. Try again?');
+    buzz(80);
+    return;
+  }
+  state.kickoff = new Date(data);
+  btn.hidden = true;
+  showToast("Unlocked! Everyone's in 🎉");
+  fireworks(2500);
+  buzz([40, 60, 120]);
+  // Back to the splash so the orga can join as a normal player
+  setTimeout(() => location.reload(), 3000);
 });
 
 goBtn.addEventListener('click', () => {
@@ -310,13 +374,14 @@ nameInput.addEventListener('input', () => { returning = null; $('welcome-back').
 function enterApp() {
   showScreen('app');
   clearInterval(countdownTimer);
+  clearInterval(unlockTimer);
   $('player-name').textContent = state.player.name;
   $('score-max').textContent = maxPoints();
   renderTasks();
   updateScore(false);
   if (!state.tasks.length) ensureTasks();
   if (!lsGet('bt-howto-seen', false)) $('howto').hidden = false;
-  if (!lsGet('bt-prize-seen', false)) showPrize();
+  if (!state.preview && !lsGet('bt-prize-seen', false)) showPrize();
   renderAgenda();
   renderNowCard();
   clearInterval(agendaTimer);
@@ -1373,17 +1438,28 @@ function initDisplay() {
   // Before kickoff (or while tasks are still locked) show a countdown, then reload once tasks unlock
   if (!isLive() || !state.tasks.length) {
     document.body.classList.add('display-waiting');
+    const c = state.countdown;
+    $('display-wait-sub').textContent = `${c.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ })} · ${fmtTime(c)}`;
+    let n = 0, busy = false;
     const tick = async () => {
-      const ms = state.kickoff.getTime() - Date.now();
+      const ms = state.countdown.getTime() - Date.now();
       if (ms > 0) {
         const sec = Math.floor(ms / 1000);
         const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, s2 = sec % 60;
         $('display-countdown').textContent = `${h}:${String(m).padStart(2, '0')}:${String(s2).padStart(2, '0')}`;
-        return;
+      } else if (!isLive()) {
+        $('display-countdown').textContent = 'Any second now 🔒';
       }
-      $('display-countdown').textContent = "It's on.";
-      await loadTasks();
-      if (state.tasks.length) location.reload();
+      // Poll for the orga's unlock every few seconds, then reload into the live board
+      if (busy || n++ % (UNLOCK_POLL_MS / 1000)) return;
+      busy = true;
+      await withTimeout(loadConfig(), 5000).catch(() => {});
+      if (isLive()) {
+        $('display-countdown').textContent = "It's on.";
+        await loadTasks().catch(() => {});
+        if (state.tasks.length) location.reload();
+      }
+      busy = false;
     };
     tick();
     setInterval(tick, 1000);

@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=202610291500">
+  <link rel="stylesheet" href="style.css?v=202610290800">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
@@ -34,7 +34,8 @@
       </h1>
 
       <div class="countdown reveal" style="--d:5">
-        <div class="cd-eyebrow cd-pre">The chaos begins in</div>
+        <div class="cd-eyebrow cd-pre cd-count">The chaos begins in</div>
+        <div class="cd-eyebrow cd-pre cd-wait">Waiting for the orga 🔒</div>
         <div class="cd-eyebrow cd-post"><span class="live-pill">Live</span></div>
         <div class="cd-line cd-pre">
           <span class="cd-unit"><b data-u="d">00</b><small>d</small></span>
@@ -100,6 +101,7 @@
 
     <main class="views">
       <div id="view-tasks" class="view active">
+        <button id="unlock-btn" class="unlock-btn" hidden>🔓 Unlock everything</button>
         <button id="now-card" class="now-card" hidden></button>
         <div id="howto" class="howto" hidden>
           <p><b>How it works:</b> do a challenge, add a photo as proof, climb the ranking. Team challenges: everyone in the photo checks it off.</p>
@@ -164,7 +166,7 @@
     <div class="display-wait">
       <div class="cd-eyebrow">The chaos begins in</div>
       <div id="display-countdown" class="display-countdown">-</div>
-      <div class="display-wait-sub">Thu 29 Oct · 13:00</div>
+      <div id="display-wait-sub" class="display-wait-sub"></div>
     </div>
     <div class="display-body">
       <div class="display-lb-col">
@@ -233,7 +235,7 @@
   </div>
   <div id="lightbox" class="lightbox"><img id="lightbox-img" alt=""></div>
 
-  <script src="supabase-config.js?v=202610291500"></script>
-  <script src="app.js?v=202610291500"></script>
+  <script src="supabase-config.js?v=202610290800"></script>
+  <script src="app.js?v=202610290800"></script>
 </body>
 </html>

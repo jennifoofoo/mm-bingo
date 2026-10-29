@@ -499,3 +499,23 @@ update agenda set food = '☕ Coffee'                    where title = 'Knowunit
 update agenda set food = '🍽️ Food'                     where title in ('Option A: Lunch at Planet A', 'Option B: Merantix AI (VC)');
 update agenda set food = '🍽️ Dinner & drinks'          where title = 'Zauber x Lucid Capital visit + dinner & drinks';
 select title, food from agenda where food is not null order by starts_at;
+
+-- Manual unlock (29 Oct): splash counts down to countdown_at, but challenges stay locked
+-- until the orga taps "Unlock everything" (orga_unlock sets kickoff_at to now)
+alter table config add column if not exists countdown_at timestamptz;
+update config set countdown_at = '2026-10-29 14:30 Europe/Berlin', kickoff_at = '2099-01-01 00:00 Europe/Berlin' where id = 1;
+
+create or replace function orga_unlock(pw text) returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare t timestamptz;
+begin
+  if not exists (select 1 from admin_secret s where s.password = pw) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  -- A minute in the past so phones with a slightly slow clock count as live right away
+  update config set kickoff_at = now() - interval '1 minute' where id = 1 and kickoff_at > now();
+  select kickoff_at into t from config where id = 1;
+  return t;
+end $$;
+grant execute on function orga_unlock(text) to anon, authenticated;
+select kickoff_at, countdown_at from config;
