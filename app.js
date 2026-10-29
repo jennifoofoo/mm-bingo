@@ -1,6 +1,16 @@
 // Tasks live only in the `tasks` table and stay unreadable until kickoff (RLS), so they remain a surprise
 const DEFAULT_KICKOFF = '2026-10-29T13:00:00+01:00';
 
+// Food at the visits, shown as a loud badge in the agenda (mirrors agenda.food)
+const FALLBACK_FOOD = {
+  'Speedinvest visit': '🥐 Pastries from the bakery',
+  'Reonic visit + dinner & drinks': '🍕 Pizza & drinks',
+  'Knowunity visit': '☕ Coffee',
+  'Option A: Lunch at Planet A': '🍽️ Food',
+  'Option B: Merantix AI (VC)': '🍽️ Food',
+  'Zauber x Lucid Capital visit + dinner & drinks': '🍽️ Dinner & drinks',
+};
+
 // Agenda fallback; the source of truth is the `agenda` table (Berlin time, CET = +01:00)
 const FALLBACK_AGENDA = [
   ['2026-10-29T09:19', '2026-10-29T13:57', 'Train Munich → Berlin'],
@@ -27,7 +37,7 @@ const FALLBACK_AGENDA = [
   ['2026-10-31T19:30', '2026-10-31T21:00', 'Pre-drinks + makeup', 'Costume pitch'],
   ['2026-10-31T23:00', null,               'Lokschuppen: Disco'],
   ['2026-11-01T13:00', '2026-11-01T14:30', 'Train Berlin → Munich', 'Individual'],
-].map(([s, e, title, note]) => ({ starts_at: s + '+01:00', ends_at: e && e + '+01:00', title, note }));
+].map(([s, e, title, note]) => ({ starts_at: s + '+01:00', ends_at: e && e + '+01:00', title, note, food: FALLBACK_FOOD[title] }));
 
 const BUCKET       = 'bingo-photos';
 const ORIGINALS_BUCKET = 'bingo-originals';
@@ -306,6 +316,7 @@ function enterApp() {
   updateScore(false);
   if (!state.tasks.length) ensureTasks();
   if (!lsGet('bt-howto-seen', false)) $('howto').hidden = false;
+  if (!lsGet('bt-prize-seen', false)) showPrize();
   renderAgenda();
   renderNowCard();
   clearInterval(agendaTimer);
@@ -411,6 +422,7 @@ function renderAgenda(list = $('agenda-list')) {
         <div>
           <div class="plan-title">${slot.map(i => safe(i.title)).join(' <i>or</i> ')}${status === 'live' ? ' <span class="live-pill">Now</span>' : ''}</div>
           ${note || first.ends_at ? `<div class="plan-sub">${[note && safe(note), first.ends_at && `until ${fmtTime(first.end)}`].filter(Boolean).join(' · ')}</div>` : ''}
+          ${slot.filter(i => i.food).map(i => `<div class="plan-food">${slot.length > 1 ? `${safe(i.title.replace(/^Option [AB]: /, ''))}: ` : ''}${safe(i.food)}</div>`).join('')}
           ${slot.filter(i => i.info || i.address || i.websites?.length).map(i => planInfo(i, slot.length > 1)).join('')}
         </div>`;
       section.appendChild(row);
@@ -448,7 +460,9 @@ function renderNowCard() {
     ? `<span class="live-pill">Now</span><b>${titles(live)}</b><small>until ${fmtTime(live[0].end)}</small>`
     : `<span class="next-pill">Next</span><b>${titles(nextGroup)}</b><small>${relDay(next.start)} ${fmtTime(next.start)}</small>`;
   const after = live.length && next ? `<div class="now-next">Next: ${titles(nextGroup)} · ${relDay(next.start)} ${fmtTime(next.start)}</div>` : '';
-  card.innerHTML = `<div class="now-main">${lead}</div>${after}`;
+  const food = [...new Set((live.length ? live : nextGroup).map(i => i.food).filter(Boolean))];
+  const foodLine = food.length ? `<div class="now-food">${food.map(safe).join(' · ')}</div>` : '';
+  card.innerHTML = `<div class="now-main">${lead}</div>${foodLine}${after}`;
   card.hidden = false;
 }
 
@@ -889,6 +903,20 @@ function celebrate(points) {
     }, 1200);
   }
 }
+
+// One-time big reveal of what the winner gets
+function showPrize() {
+  $('prize').classList.add('open');
+  $('prize').setAttribute('aria-hidden', 'false');
+  setTimeout(() => { buzz([40, 60, 40, 60, 120]); fireworks(3200); }, 500);
+}
+
+$('prize-close').addEventListener('click', () => {
+  $('prize').classList.remove('open');
+  $('prize').setAttribute('aria-hidden', 'true');
+  lsSet('bt-prize-seen', true);
+  buzz(10);
+});
 
 $('all-done-close').addEventListener('click', () => {
   $('all-done').classList.remove('open');

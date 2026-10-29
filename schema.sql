@@ -490,3 +490,12 @@ insert into tasks (id, text, points, sort, category) values
   ('body_shot_mm',   'Do a body shot with someone from MM', 3, 202, 'spicy')
 on conflict (id) do update set text = excluded.text, points = excluded.points, sort = excluded.sort, category = excluded.category;
 select count(*) as tasks, sum(points) as max_points from tasks;
+
+-- Food at the visits: loud badge in the agenda (29 Oct)
+alter table agenda add column if not exists food text;
+update agenda set food = '🥐 Pastries from the bakery' where title = 'Speedinvest visit';
+update agenda set food = '🍕 Pizza & drinks'           where title = 'Reonic visit + dinner & drinks';
+update agenda set food = '☕ Coffee'                    where title = 'Knowunity visit';
+update agenda set food = '🍽️ Food'                     where title in ('Option A: Lunch at Planet A', 'Option B: Merantix AI (VC)');
+update agenda set food = '🍽️ Dinner & drinks'          where title = 'Zauber x Lucid Capital visit + dinner & drinks';
+select title, food from agenda where food is not null order by starts_at;

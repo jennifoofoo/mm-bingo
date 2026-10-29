@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=202610281820">
+  <link rel="stylesheet" href="style.css?v=202610291500">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
@@ -129,6 +129,7 @@
 
       <div id="view-ranking" class="view">
         <h2 class="view-title">Leaderboard</h2>
+        <div class="prize-line">🏆 Most points at the end wins a <b>30 € Amari Bar voucher</b></div>
         <ol id="lb-list" class="lb-list"></ol>
       </div>
     </main>
@@ -168,6 +169,7 @@
     <div class="display-body">
       <div class="display-lb-col">
         <h2 class="view-title">Leaderboard</h2>
+        <div class="prize-line">🏆 Winner gets a <b>30 € Amari Bar voucher</b></div>
         <ol id="display-lb" class="lb-list"></ol>
       </div>
       <div id="display-feed" class="display-feed-col feed-list"></div>
@@ -209,6 +211,18 @@
     </div>
   </div>
 
+  <!-- OVERLAY: prize reveal, once per phone -->
+  <div id="prize" class="all-done prize" aria-hidden="true">
+    <div class="all-done-inner">
+      <div class="prize-eyebrow">The winner gets</div>
+      <div class="prize-trophy">🏆</div>
+      <div class="prize-amount">30 €</div>
+      <div class="prize-title">Amari Bar voucher</div>
+      <p>Most points at the end of the tour takes it all.</p>
+      <button id="prize-close" class="go-btn"><span>I want it</span></button>
+    </div>
+  </div>
+
   <div id="loading" class="loading"><div class="spinner"></div><div id="loading-text">Uploading...</div></div>
   <div id="toast" class="toast"></div>
   <div id="install-hint" class="install-hint" hidden>
@@ -219,7 +233,7 @@
   </div>
   <div id="lightbox" class="lightbox"><img id="lightbox-img" alt=""></div>
 
-  <script src="supabase-config.js?v=202610281820"></script>
-  <script src="app.js?v=202610281820"></script>
+  <script src="supabase-config.js?v=202610291500"></script>
+  <script src="app.js?v=202610291500"></script>
 </body>
 </html>

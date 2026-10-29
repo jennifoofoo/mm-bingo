@@ -741,3 +741,40 @@ body.display-mode { max-width: none; }
 .plan-sites a { font-size: 13px; font-weight: 600; color: var(--teal); text-decoration: none; padding: 5px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
 .plan-prep { font-size: 12.5px !important; color: var(--muted) !important; }
 .plan-prep b { color: var(--gold) !important; white-space: nowrap; }
+
+/* ── FOOD BADGE (agenda + now card) ──────────── */
+
+.plan-food, .now-food {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; margin-right: 6px; padding: 5px 11px; border-radius: 99px;
+  background: var(--gold); color: #1A1300; font-size: 13px; font-weight: 800; letter-spacing: .01em;
+  box-shadow: 0 0 0 0 rgba(245, 196, 81, .55); animation: food-glow 2.4s ease-out infinite;
+}
+.plan-row.past .plan-food { animation: none; opacity: .55; box-shadow: none; }
+.now-food { margin-top: 10px; font-size: 12.5px; }
+@keyframes food-glow { 0% { box-shadow: 0 0 0 0 rgba(245, 196, 81, .55); } 70%, 100% { box-shadow: 0 0 0 9px rgba(245, 196, 81, 0); } }
+
+/* ── PRIZE REVEAL ────────────────────────────── */
+
+.prize { z-index: 160; background: radial-gradient(circle at 50% 40%, rgba(245, 196, 81, .22), rgba(7, 8, 15, .96) 60%); }
+.prize .all-done-inner > * { opacity: 0; }
+.prize.open .all-done-inner > * { animation: prize-in .6s var(--ease) forwards; }
+.prize.open .prize-eyebrow { animation-delay: .15s; }
+.prize.open .prize-trophy  { animation: prize-trophy 1s cubic-bezier(.2, 1.6, .4, 1) .35s forwards; }
+.prize.open .prize-title   { animation-delay: 1.25s; }
+.prize.open p              { animation-delay: 1.5s; }
+.prize.open .go-btn        { animation-delay: 1.8s; }
+.prize-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+.prize-trophy { font-size: 84px; line-height: 1; filter: drop-shadow(0 10px 30px rgba(245, 196, 81, .5)); }
+.prize-amount {
+  font-family: var(--display); font-weight: 900; font-size: clamp(80px, 27vw, 140px); line-height: .9; letter-spacing: -.05em; white-space: nowrap;
+  background: linear-gradient(100deg, var(--gold) 30%, #FFF6D8 50%, var(--gold) 70%); background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.prize.open .prize-amount { animation: prize-pop .8s cubic-bezier(.2, 1.8, .4, 1) .9s forwards, shimmer 2.2s linear 1.7s infinite; }
+.prize-title { font-family: var(--display); font-weight: 700; font-size: 28px; letter-spacing: -.02em; }
+@keyframes prize-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes prize-trophy { from { opacity: 0; transform: scale(.2) rotate(-25deg); } to { opacity: 1; transform: none; } }
+@keyframes prize-pop { from { opacity: 0; transform: scale(2.4); } to { opacity: 1; transform: none; } }
+
+.prize-line { margin: -6px 4px 14px; padding: 10px 14px; border-radius: 14px; background: rgba(245, 196, 81, .12); border: 1px solid rgba(245, 196, 81, .35); font-size: 14px; color: var(--text); }
+.prize-line b { color: var(--gold); }
